@@ -6,14 +6,13 @@ LastEditors: Please set LastEditors
 Description: Tree structure
 FilePath: /Tree2Seq/Utils/tree.py
 '''
-from __future__ import annotations
 from typing import List
 
 
 class TreeNode:
     def __init__(self,
                  name: str,
-                 parent: TreeNode = None,
+                 parent=None,
                  copy_mark: int = 0,
                  type: str = None,
                  schema=None):
@@ -33,16 +32,16 @@ class TreeNode:
         self.type = type
         self.schema = schema
 
-    def add_child(self, child: TreeNode, front=False):
+    def add_child(self, child, front=False):
         if front:
             self.children = [child] + self.children
         else:
             self.children.append(child)
 
-    def set_parent(self, parent: TreeNode):
+    def set_parent(self, parent):
         self.parent = parent
 
-    def add_children(self, children: List[TreeNode]):
+    def add_children(self, children):
         self.children += children
 
     def set_idx(self, idx: int):

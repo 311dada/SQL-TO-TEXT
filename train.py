@@ -380,6 +380,8 @@ def run(args):
 
         scheduler.step()
 
+    print(f"best bleu: {best_bleu}")
+
 
 if __name__ == "__main__":
     args = parse()
