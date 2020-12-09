@@ -1,5 +1,7 @@
 #!/bin/bash
 
+MODEL="RGT"
+
 python train.py \
     --seed 1010 \
     --data spider \
@@ -22,20 +24,20 @@ python train.py \
     --rel_share 1 \
     --k_v_share 0 \
     --mode "concat" \
-    --cross_atten "None+None" \
+    --cross_atten "AOD+None" \
     --up_rel "DRD" "DBS" \
     --down_rel "RPR" "LCA" \
-    --gpu 1 \
+    --gpu 0 \
     --lr 1e-4 \
-    --epoch 50000000 \
+    --epoch 50 \
     --train_batch_size 16 \
     --eval_batch_size 32 \
-    --schedule_step 2000000 \
-    --log Logs/test1.log \
+    --schedule_step 20 \
+    --log Logs/$MODEL.log \
     --gamma 0.8 \
-    --prefix test1 \
-    --model "Relative-Transformer" \
-    --min_freq 5 \
+    --prefix $MODEL \
+    --model $MODEL \
+    --min_freq 1 \
     --train_step 10 \
     --eval_step 500 \
-    --output Output/test1.out 
+    --output Output/$MODEL.out 

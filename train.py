@@ -93,6 +93,7 @@ def eval(model,
          args,
          device,
          MODEL,
+         best_bleu=100,
          max_decode=50):
     model.eval()
     dataloader = DataLoader(dataset, args.eval_batch_size)
@@ -149,9 +150,18 @@ def eval(model,
         preds = torch.cat(preds, dim=1)
         total_preds += preds.tolist()
 
-    bleu = get_metric(total_preds, dataset.origin_questions, down_vocab, True,
-                      dataset.val_map_list, args.output,
-                      dataset.idx2tok_map_list)
+    bleu, preds, refs = get_metric(total_preds, dataset.origin_questions,
+                                   down_vocab, True, dataset.val_map_list,
+                                   dataset.idx2tok_map_list)
+
+    if bleu > best_bleu:
+        with open(args.output, 'w') as f:
+            for idx, pred in enumerate(preds):
+                f.write(f"Pre: {pred}\n\n")
+                f.write(f"Ref: \n     1. {refs[0][idx]}\n")
+                if refs[0][idx] != refs[1][idx]:
+                    f.write(f"     2. {refs[1][idx]}\n")
+                f.write(f"{'-' * 60}\n")
 
     return bleu
 
@@ -322,23 +332,42 @@ def run(args):
                 if args.model == "RGT":
                     train_bleu = eval(model, train_set, up_vocab, down_vocab,
                                       args, device, args.model)
-                    dev_bleu = eval(model, dev_set, up_vocab, down_vocab, args,
-                                    device, args.model)
+
+                    logging.info(
+                        f"epoch {epoch}, batch {batch_step}: [training bleu-> {round(train_bleu, 4)}]"
+                    )
+                    dev_bleu = eval(model,
+                                    dev_set,
+                                    up_vocab,
+                                    down_vocab,
+                                    args,
+                                    device,
+                                    args.model,
+                                    best_bleu=best_bleu)
+                    logging.info(
+                        f"epoch {epoch}, batch {batch_step}: [dev bleu-> {round(dev_bleu, 4)}]"
+                    )
                 elif args.model == "Relative-Transformer":
                     train_bleu = eval(model, train_set, None, vocab, args,
                                       device, args.model)
-                    dev_bleu = eval(model, dev_set, None, vocab, args,
-                                    device, args.model)
+
+                    logging.info(
+                        f"epoch {epoch}, batch {batch_step}: [training bleu-> {round(train_bleu, 4)}]"
+                    )
+                    dev_bleu = eval(model,
+                                    dev_set,
+                                    None,
+                                    vocab,
+                                    args,
+                                    device,
+                                    args.model,
+                                    best_bleu=best_bleu)
+                    logging.info(
+                        f"epoch {epoch}, batch {batch_step}: [dev bleu-> {round(dev_bleu, 4)}]"
+                    )
                 else:
                     # TODO
                     pass
-                logging.info(
-                    f"epoch {epoch}, batch {batch_step}: [training bleu-> {round(train_bleu, 4)}]"
-                )
-
-                logging.info(
-                    f"epoch {epoch}, batch {batch_step}: [dev bleu-> {round(dev_bleu, 4)}]"
-                )
 
                 if dev_bleu > best_bleu:
                     best_bleu = dev_bleu

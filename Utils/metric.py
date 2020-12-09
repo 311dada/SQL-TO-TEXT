@@ -50,12 +50,38 @@ def join_toks(toks: List[str], to_join=False) -> Union[str, List[str]]:
     return new_toks
 
 
+def combine_same_ref(preds_, refs_):
+    preds = []
+    refs = []
+
+    pre = ""
+
+    for index, pred in enumerate(preds_):
+        if pred == pre:
+            refs[-1].append(refs_[index])
+        else:
+            preds.append(pred)
+            pre = pred
+            refs.append([refs_[index]])
+
+    ref1 = []
+    ref2 = []
+
+    for ref in refs:
+        ref1.append(ref[0])
+        if len(ref) > 1:
+            ref2.append(ref[1])
+        else:
+            ref2.append(ref[0])
+
+    return preds, [ref1, ref2]
+
+
 def get_metric(preds: List[List],
                labels: List,
                vocab: Vocabulary,
                delexicalize=False,
                val_map_list=None,
-               out_file=None,
                idx2tok_map_list=None) -> float:
     """Calculate the score between preds and labels. Support BLEU4 only now.
 
@@ -85,9 +111,7 @@ def get_metric(preds: List[List],
 
     preds = [join_toks(pred, to_join=True) for pred in preds]
 
-    if out_file is not None:
-        with open(out_file, "w") as f:
-            for pred in preds:
-                f.write(f"{pred}\n")
+    preds_, refs_ = combine_same_ref(preds, labels)
 
-    return corpus_bleu(preds, [labels], force=True, lowercase=True).score
+    return corpus_bleu(preds_, refs_, force=True,
+                       lowercase=True).score, preds_, refs_

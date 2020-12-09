@@ -584,6 +584,22 @@ def get_sequences(sqls: List[str], dbs: List[str],
     return sql_seq, cliques, copy_masks
 
 
+def add_schemas(tables_map, vocab):
+    for schema in tables_map.values():
+        tables = schema["tables"]
+
+        for table in tables.values():
+            vocab.add_words(table.lower().split())
+
+        table_columns = schema["columns"].values()
+
+        for table in table_columns:
+            columns = table.values()
+            for column in columns:
+                vocab.add_words(column.lower().split())
+    return vocab
+
+
 def load_data(
     data_files: List[str],
     table_file: str,
@@ -627,6 +643,7 @@ def load_data(
         logging.info("Start building vocabulary.")
         # build vocabulary
         down_vocab = build_vocab(down_nodes, proc_ques, min_freq=min_freq)
+        down_vocab = add_schemas(tables_map, down_vocab)
         up_vocab = build_up_vocab(up_nodes, min_freq)
 
     logging.info("Start post processing, such as padding.")
@@ -689,6 +706,7 @@ def load_seq2seq_data(data_files: List[str],
         logging.info("Start building vocabulary.")
         # build vocabulary
         vocab = build_vocab(sqls, proc_ques, min_freq=min_freq)
+        vocab = add_schemas(tables_map, vocab)
 
     logging.info("Start post processing, such as padding.")
     # pad sqls, questions, copy_masks and transform them to idx representation
