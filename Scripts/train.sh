@@ -1,15 +1,16 @@
 #!/bin/bash
 
 MODEL="RGT"
+UPDIM=64
 
 python train.py \
     --seed 1010 \
     --data spider \
-    --up_embed_dim 300 \
+    --up_embed_dim 64 \
     --down_embed_dim 300 \
     --up_max_depth 4 \
     --down_max_dist 4 \
-    --up_d_model 512 \
+    --up_d_model 64 \
     --down_d_model 512 \
     --up_d_ff 256 \
     --down_d_ff 2048 \
@@ -33,11 +34,11 @@ python train.py \
     --train_batch_size 16 \
     --eval_batch_size 32 \
     --schedule_step 20 \
-    --log Logs/$MODEL.log \
+    --log Logs/$MODEL_$UPDIM.log \
     --gamma 0.8 \
-    --prefix $MODEL \
+    --prefix $MODEL_$UPDIM \
     --model $MODEL \
     --min_freq 1 \
     --train_step 10 \
     --eval_step 500 \
-    --output Output/$MODEL.out 
+    --output Output/$MODEL_$UPDIM.out 
