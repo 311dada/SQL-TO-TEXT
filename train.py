@@ -268,7 +268,7 @@ def run(args):
     # data loader
     train_data_loader = DataLoader(train_set,
                                    batch_size=args.train_batch_size,
-                                   shuffle=False)
+                                   shuffle=True)
 
     # if test_set is not None:
     #     test_data_loader = DataLoader(test_set,
