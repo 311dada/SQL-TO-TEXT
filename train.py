@@ -380,7 +380,7 @@ def run(args):
 
         scheduler.step()
 
-    print(f"best bleu: {best_bleu}")
+    logging.info(f"best bleu: {round(best_bleu, 4)}")
 
 
 if __name__ == "__main__":
