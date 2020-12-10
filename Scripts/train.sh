@@ -2,18 +2,19 @@
 
 MODEL="RGT"
 UPDIM=64
+let UPDFF=UPDIM*4
 SEED=$1
 
 python train.py \
     --seed $SEED \
     --data spider \
-    --up_embed_dim 64 \
+    --up_embed_dim 100 \
     --down_embed_dim 300 \
     --up_max_depth 4 \
     --down_max_dist 4 \
-    --up_d_model 64 \
+    --up_d_model $UPDIM \
     --down_d_model 512 \
-    --up_d_ff 256 \
+    --up_d_ff $UPDFF \
     --down_d_ff 2048 \
     --up_head_num 8 \
     --down_head_num 8 \
