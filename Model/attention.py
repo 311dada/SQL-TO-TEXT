@@ -75,7 +75,7 @@ class RelationMultiHeadAttention(nn.Module):
             self.d_rel = d_rel
         elif mode == "multi-head":
             assert d_rel % self.head_num == 0
-            self.d_rel = d_rel // self.head_num
+            self.d_rel = self.d_k
         else:
             raise NotImplementedError("Not supported RAT mode.")
 
@@ -101,9 +101,12 @@ class RelationMultiHeadAttention(nn.Module):
                 if not self.rel_share:
                     r_k = self.r_k_prj(r_k)
             elif self.mode == "multi-head":
+                r_num = r_k.size(-1) // self.d_k
+                r_k = r_k.reshape(-1, node_num, node_num,
+                                  r_num, self.d_rel).unsqueeze(1).transpose(
+                                      1, 4).squeeze(4)
+                r_k = r_k.repeat(1, self.head_num // r_num, 1, 1, 1)
                 if not self.rel_share:
-                    r_k = r_k.reshape(-1, node_num, node_num, self.head_num,
-                                      self.d_rel)
                     r_k = self.r_k_prj(r_k)
 
             # r_v then
@@ -114,9 +117,12 @@ class RelationMultiHeadAttention(nn.Module):
                     if not self.rel_share:
                         r_v = self.r_v_prj(r_v)
                 elif self.mode == "multi-head":
+                    r_num = r_v.size(-1) // self.d_k
+                    r_v = r_v.reshape(-1, node_num, node_num, r_num,
+                                      self.d_rel).unsqueeze(1).transpose(
+                                          1, 4).squeeze(4)
+                    r_v = r_v.repeat(1, self.head_num // r_num, 1, 1, 1)
                     if not self.rel_share:
-                        r_v = r_v.reshape(-1, node_num, node_num,
-                                          self.head_num, self.d_rel)
                         r_v = self.r_v_prj(r_v)
 
         q = self.prj_q(q)

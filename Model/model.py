@@ -247,7 +247,7 @@ class TransformerBase(nn.Module):
         return out
 
 
-# Normal Transformer
+# TODO Normal Transformer
 class AbsoluteTransformer(TransformerBase):
     pass
 
@@ -355,21 +355,21 @@ class RelativeTransformer(TransformerBase):
         return out
 
 
-# GAT
+# TODO GAT
 class GAT(TransformerBase):
     pass
 
 
-# GCN
+# TODO GCN
 class GCN(nn.Module):
     pass
 
 
-# BiLSTM
+# TODO BiLSTM
 class BiLSTM(nn.Module):
     pass
 
 
-# TreeLSTM
+# TODO TreeLSTM
 class TreeLSTM(nn.Module):
     pass
