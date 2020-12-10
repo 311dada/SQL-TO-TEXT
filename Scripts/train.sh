@@ -36,11 +36,11 @@ python train.py \
     --train_batch_size 16 \
     --eval_batch_size 32 \
     --schedule_step 20 \
-    --log Logs/$MODEL_$UPDIM_$SEED.log \
+    --log "Logs/${MODEL}_${UPDIM}_${SEED}.log" \
     --gamma 0.8 \
-    --prefix $MODEL_$UPDIM_$SEED \
+    --prefix "${MODEL}_${UPDIM}_${SEED}" \
     --model $MODEL \
     --min_freq 1 \
     --train_step 10 \
     --eval_step 500 \
-    --output Output/$MODEL_$UPDIM_$SEED.out 
+    --output "Output/${MODEL}_${UPDIM}_${SEED}.out" 
