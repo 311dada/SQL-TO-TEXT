@@ -261,8 +261,9 @@ class AbsoluteTransformer(TransformerBase):
                  dropout,
                  pad_idx,
                  max_oov_num=50,
-                 max_len=100,
-                 copy=True):
+                 max_len=500,
+                 copy=True,
+                 pos=True):
         assert d_model % head_num == 0
         super(AbsoluteTransformer, self).__init__(embed_dim,
                                                   vocab_size,
@@ -275,22 +276,25 @@ class AbsoluteTransformer(TransformerBase):
                                                   max_oov_num=max_oov_num,
                                                   copy=copy)
         self.d_k = d_model // head_num
+        self.pos = pos
         self.embedding = nn.Embedding(vocab_size, embed_dim)
-        self.pos_embed = PositionalEncoding(dropout, embed_dim, max_len)
+        if pos:
+            self.pos_embed = PositionalEncoding(dropout, embed_dim, max_len)
         self.pad_idx = pad_idx
 
         self.init_prj = nn.Linear(embed_dim, d_model)
         self.dec_prj = nn.Linear(d_model, hid_size)
         self.drop = nn.Dropout(dropout)
 
-    def encode(self, nodes, graphs=None):
+    def encode(self, nodes):
         pad_mask = self.get_mask(nodes)
-        if graphs is None:
-            mask = bin2inf(pad_mask).unsqueeze(1).unsqueeze(1)
-        else:
-            mask = bin2inf(graphs).unsqueeze(1)
+        mask = bin2inf(pad_mask).unsqueeze(1).unsqueeze(1)
 
-        nodes = self.drop(self.init_prj(self.pos_embed(self.embedding(nodes))))
+        if self.pos:
+            nodes = self.drop(
+                self.init_prj(self.pos_embed(self.embedding(nodes))))
+        else:
+            nodes = self.drop(self.init_prj(self.embedding(nodes)))
         nodes = super(AbsoluteTransformer, self).encode(nodes, mask=mask)
 
         nodes = self.drop(self.dec_prj(nodes))
@@ -434,7 +438,7 @@ class RelativeTransformer(TransformerBase):
 
 
 # GAT
-class GAT(AbsoluteTransformer):
+class GAT(TransformerBase):
     def __init__(self,
                  embed_dim,
                  vocab_size,
@@ -443,11 +447,11 @@ class GAT(AbsoluteTransformer):
                  head_num,
                  layer_num,
                  hid_size,
-                 dropout,
                  pad_idx,
+                 dropout,
                  max_oov_num=50,
-                 max_len=100,
                  copy=True):
+        assert d_model % head_num == 0
         super(GAT, self).__init__(embed_dim,
                                   vocab_size,
                                   d_model,
@@ -456,18 +460,63 @@ class GAT(AbsoluteTransformer):
                                   layer_num,
                                   hid_size,
                                   dropout,
-                                  pad_idx,
                                   max_oov_num=max_oov_num,
-                                  max_len=max_len,
                                   copy=copy)
 
-    # TODO
-    def encode(self, nodes, graphs):
-        pass
+        self.embedding = nn.Embedding(vocab_size, embed_dim)
+        self.d_k = d_model // head_num
+        self.pad_idx = pad_idx
 
-    # TODO
-    def forward(self):
-        pass
+        self.init_prj = nn.Linear(embed_dim, d_model)
+        self.dec_prj = nn.Linear(d_model, hid_size)
+        self.drop = nn.Dropout(dropout)
+
+    def encode(self, nodes, graphs):
+        pad_mask = self.get_mask(nodes)
+        mask = bin2inf(graphs).unsqueeze(1)
+
+        nodes = self.drop(self.init_prj(self.embedding(nodes)))
+        nodes = super(GAT, self).encode(nodes, mask=mask)
+        nodes = self.drop(self.dec_prj(nodes))
+
+        hidden = self.get_init_hidden(nodes, pad_mask)
+
+        return nodes, hidden, bin2inf(pad_mask).unsqueeze(1)
+
+    def decode(self,
+               questions,
+               nodes,
+               hidden,
+               mask=None,
+               copy_mask=None,
+               src2trg_map=None):
+        questions = self.embedding(questions)
+        return super(GAT, self).decode(questions, nodes, hidden, mask,
+                                       bin2inf(copy_mask).unsqueeze(1),
+                                       src2trg_map)
+
+    def forward(self,
+                nodes,
+                graphs,
+                questions,
+                copy_mask=None,
+                src2trg_map=None):
+        nodes, hidden, mask = self.encode(nodes, graphs)
+        out, _ = self.decode(questions, nodes, hidden, mask, copy_mask,
+                             src2trg_map)
+
+        return out
+
+    def get_mask(self, x):
+        mask = get_bin_mask(x, self.pad_idx)
+        return mask
+
+    @staticmethod
+    def get_init_hidden(nodes, mask):
+        h = max_pooling(nodes, mask.unsqueeze(-1))
+        h = h.transpose(0, 1)
+        c = torch.zeros_like(h)
+        return (h, c)
 
 
 # TODO GCN

@@ -8,16 +8,17 @@ FilePath: /Tree2Seq/Data/wikisql/dataset.py
 '''
 from torch.utils.data import Dataset
 from Data.vocab import Vocabulary
-from Data.spider.data_utils import load_data, load_seq2seq_data
+from Data.spider.data_utils import load_spider_data, load_spider_seq2seq_data
 from typing import Tuple, List
 import torch
 
 
-class SpiderDataset(Dataset):
+class RGTDataset(Dataset):
     def __init__(self,
                  data_files: List[str],
                  table_file: str,
                  down_vocab: Vocabulary = None,
+                 data="spider",
                  up_vocab=None,
                  min_freq=1,
                  max_depth=4):
@@ -28,7 +29,13 @@ class SpiderDataset(Dataset):
             vocab (Vocabulary, optional): vocabulary. If none, build it from the data. Defaults to None.
             min_freq (int, optional): the minimum frequency of words in vocabulary. Defaults to 1.
         """
-        super(SpiderDataset, self).__init__()
+        super(RGTDataset, self).__init__()
+
+        if data == "spider":
+            load_data = load_spider_data
+        else:
+            # TODO
+            pass
 
         down_nodes, up_nodes, up_nodes_types, down_nodes_types, up_depths, up_schemas, down_to_up_relations, questions, copy_masks, src2trg_map_list, origin_ques, down_vocab, up_vocab, val_map_list, idx2tok_map_list, up_to_down_masks, down_to_up_masks = load_data(
             data_files, table_file, down_vocab, up_vocab, min_freq, max_depth)
@@ -69,9 +76,19 @@ class SpiderDataset(Dataset):
                             idx], self.down_to_up_masks[idx]
 
 
-class SeqSpiderDataset(Dataset):
-    def __init__(self, data_files, table_file, vocab=None, min_freq=1):
-        super(SeqSpiderDataset, self).__init__()
+class SeqDataset(Dataset):
+    def __init__(self,
+                 data_files,
+                 table_file,
+                 data="spider",
+                 vocab=None,
+                 min_freq=1):
+        super(SeqDataset, self).__init__()
+        if data == "spider":
+            load_seq2seq_data = load_spider_seq2seq_data
+        else:
+            # TODO
+            pass
         sqls, questions, copy_masks, origin_ques, vocab, val_map_list, src2trg_map_list, idx2tok_map_list = load_seq2seq_data(
             data_files, table_file, vocab, min_freq)
 
@@ -90,3 +107,22 @@ class SeqSpiderDataset(Dataset):
     def __getitem__(self, index: int):
         return self.sqls[index], self.questions[index], self.copy_masks[
             index], self.src2trg_mapping[index]
+
+
+class SingleGraphDataset(Dataset):
+    def __init__(self,
+                 data_files,
+                 table_file,
+                 data="spider",
+                 vocab=None,
+                 min_freq=1):
+        super(SingleGraphDataset, self).__init__()
+        # TODO
+
+    def __len__(self) -> int:
+        # TODO
+        pass
+
+    def __getitem__(self, index: int):
+        # TODO
+        pass

@@ -29,7 +29,7 @@ class PositionalEncoding(nn.Module):
                               -(math.log(10000.0) / dim)))
         pe[:, 0::2] = torch.sin(position.float() * div_term)
         pe[:, 1::2] = torch.cos(position.float() * div_term)
-        pe = pe.unsqueeze(1)
+        self.pe = pe.unsqueeze(1)
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
         self.dim = dim
@@ -42,7 +42,7 @@ class PositionalEncoding(nn.Module):
             step (int or NoneType): If stepwise (``seq_len = 1``), use
                 the encoding for this position.
         """
-
+        self.pe = self.pe.to(emb.device)
         emb = emb * math.sqrt(self.dim)
         if step is None:
             if self.pe.size(0) < emb.size(1):

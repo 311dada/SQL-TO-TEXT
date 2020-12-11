@@ -2,12 +2,12 @@ import argparse
 from Utils.fix_seed import fix_seed
 import torch
 import logging
-from Data.spider.dataset import SpiderDataset, SeqSpiderDataset
+from Data.dataset import RGTDataset, SeqDataset
 from Model.model import RGT, RelativeTransformer, AbsoluteTransformer, BiLSTM
 from Utils.const import UP_SCHEMA_NUM, UP_TYPE_NUM, DOWN_TYPE_NUM, RGT_VOCAB_PATH, RGT_MODEL_PATH, SEQ_VOCAB_PATH, RELATIVE_MODEL_PATH, TRANSFORMER_MODEL_PATH, BILSTM_MODEL_PATH
 import os
 from torch.utils.data import DataLoader
-from Data.spider.data_utils import get_RGT_batch_data, get_seq_batch_data
+from Data.utils import get_RGT_batch_data, get_seq_batch_data
 from Utils.metric import get_metric
 
 
@@ -52,6 +52,7 @@ def parse():
     parser.add_argument("--model", type=str)
     parser.add_argument("--min_freq", type=int, default=1)
     parser.add_argument("--output", type=str)
+    parser.add_argument("--absolute_pos", type=int, default=1)
 
     return parser.parse_args()
 
@@ -185,9 +186,14 @@ def run(args):
     up_vocab, down_vocab, vocab = None, None, None
     train_set, dev_set = None, None
     model = None
+    DATA = None
+    train_data_files = []
+    table_file = ''
+    dev_data_files = []
 
     # build vocabulary and load data
     if args.data == "spider":
+        DATA = "spider"
         train_data_files = [
             "./Dataset/spider/train_spider.json",
             "./Dataset/spider/train_others.json"
@@ -195,44 +201,47 @@ def run(args):
         # train_data_files = ['./Dataset/spider/test.json']
         table_file = "./Dataset/spider/tables.json"
         dev_data_files = ["./Dataset/spider/dev.json"]
-
-        if args.model == "RGT":
-            train_set = SpiderDataset(train_data_files,
-                                      table_file,
-                                      min_freq=args.min_freq)
-            dev_set = SpiderDataset(dev_data_files,
-                                    table_file,
-                                    down_vocab=train_set.down_vocab,
-                                    up_vocab=train_set.up_vocab)
-            up_vocab = train_set.up_vocab
-            down_vocab = train_set.down_vocab
-
-            if not os.path.exists(RGT_VOCAB_PATH):
-                os.makedirs(RGT_VOCAB_PATH)
-            up_vocab.save(os.path.join(RGT_VOCAB_PATH, 'up.vocab'))
-            down_vocab.save(os.path.join(RGT_VOCAB_PATH, 'down.vocab'))
-        elif args.model in ["Relative-Transformer", "Transformer", "BiLSTM"]:
-            train_set = SeqSpiderDataset(train_data_files,
-                                         table_file,
-                                         min_freq=args.min_freq)
-            dev_set = SeqSpiderDataset(dev_data_files,
-                                       table_file,
-                                       vocab=train_set.vocab)
-            vocab = train_set.vocab
-
-            if not os.path.exists(SEQ_VOCAB_PATH):
-                os.makedirs(SEQ_VOCAB_PATH)
-            vocab.save(os.path.join(SEQ_VOCAB_PATH, "relative.vocab"))
-
-        else:
-            # TODO
-            pass
-
     elif args.data == "wikisql":
         # TODO
         pass
     else:
         raise NotImplementedError("Not supported dataset.")
+
+    if args.model == "RGT":
+        train_set = RGTDataset(train_data_files,
+                               table_file,
+                               data=DATA,
+                               min_freq=args.min_freq)
+        dev_set = RGTDataset(dev_data_files,
+                             table_file,
+                             data=DATA,
+                             down_vocab=train_set.down_vocab,
+                             up_vocab=train_set.up_vocab)
+        up_vocab = train_set.up_vocab
+        down_vocab = train_set.down_vocab
+
+        if not os.path.exists(RGT_VOCAB_PATH):
+            os.makedirs(RGT_VOCAB_PATH)
+        up_vocab.save(os.path.join(RGT_VOCAB_PATH, 'up.vocab'))
+        down_vocab.save(os.path.join(RGT_VOCAB_PATH, 'down.vocab'))
+    elif args.model in ["Relative-Transformer", "Transformer", "BiLSTM"]:
+        train_set = SeqDataset(train_data_files,
+                               table_file,
+                               data=DATA,
+                               min_freq=args.min_freq)
+        dev_set = SeqDataset(dev_data_files,
+                             table_file,
+                             data=DATA,
+                             vocab=train_set.vocab)
+        vocab = train_set.vocab
+
+        if not os.path.exists(SEQ_VOCAB_PATH):
+            os.makedirs(SEQ_VOCAB_PATH)
+        vocab.save(os.path.join(SEQ_VOCAB_PATH, "relative.vocab"))
+
+    else:
+        # TODO
+        pass
 
     # build model
     if args.model == "RGT":
@@ -255,11 +264,18 @@ def run(args):
                                     args.copy, args.rel_share, args.k_v_share)
 
     elif args.model == "Transformer":
-        model = AbsoluteTransformer(args.down_embed_dim, vocab.size,
-                                    args.down_d_model, args.down_d_ff,
-                                    args.down_head_num, args.down_layer_num,
-                                    args.hid_size, args.dropout, vocab.pad_idx,
-                                    args.max_oov_num, args.copy)
+        model = AbsoluteTransformer(args.down_embed_dim,
+                                    vocab.size,
+                                    args.down_d_model,
+                                    args.down_d_ff,
+                                    args.down_head_num,
+                                    args.down_layer_num,
+                                    args.hid_size,
+                                    args.dropout,
+                                    vocab.pad_idx,
+                                    max_oov_num=args.max_oov_num,
+                                    copy=args.copy,
+                                    pos=args.absolute_pos)
     elif args.model == "BiLSTM":
         model = BiLSTM(args.down_embed_dim, vocab.size, args.hid_size,
                        vocab.pad_idx, args.dropout, args.max_oov_num,
@@ -328,7 +344,9 @@ def run(args):
                                                   args.down_max_dist,
                                                   down_vocab.size,
                                                   down_vocab.unk_idx)
-            elif args.model in ["Relative-Transformer", "Transformer", "BiLSTM"]:
+            elif args.model in [
+                    "Relative-Transformer", "Transformer", "BiLSTM"
+            ]:
                 batch, label = get_seq_batch_data(batch_data, vocab.pad_idx,
                                                   device, vocab.size,
                                                   vocab.unk_idx,
@@ -342,7 +360,9 @@ def run(args):
                 train_loss = train(model, batch, label, optimizer, Loss,
                                    down_vocab.size, down_vocab.unk_idx,
                                    args.model)
-            elif args.model in ["Relative-Transformer", "Transformer", "BiLSTM"]:
+            elif args.model in [
+                    "Relative-Transformer", "Transformer", "BiLSTM"
+            ]:
                 train_loss = train(model, batch, label, optimizer, Loss,
                                    vocab.size, vocab.unk_idx, args.model)
             else:
@@ -374,7 +394,9 @@ def run(args):
                     logging.info(
                         f"epoch {epoch}, batch {batch_step}: [dev bleu-> {round(dev_bleu, 4)}]"
                     )
-                elif args.model in ["Relative-Transformer", "Transformer", "BiLSTM"]:
+                elif args.model in [
+                        "Relative-Transformer", "Transformer", "BiLSTM"
+                ]:
                     train_bleu = eval(model, train_set, None, vocab, args,
                                       device, args.model)
 

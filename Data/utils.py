@@ -12,8 +12,8 @@ from Data.vocab import Vocabulary
 from collections import Counter
 import numpy as np
 from Utils.const import SCHEMA_RELATIONS, UP_TYPES, DOWN_TYPES
-# from Utils.tools import get_position_relations
-# import torch
+import torch
+from Utils.tools import get_position_relations
 
 
 def rm_contents_in_brackets(contents: str, bracket: str = "()") -> str:
@@ -616,3 +616,79 @@ def pad_up_to_down_masks(up_to_down_masks, up_nodes_num, down_nodes_num):
         masks.append(mask)
 
     return np.array(masks)
+
+
+def get_lens(x, pad):
+    return torch.max(torch.sum(x != pad, dim=1))
+
+
+def get_length(x, pad):
+    return torch.sum(x != pad, dim=1)
+
+
+def get_RGT_batch_data(batch_data, up_pad_idx, down_pad_idx, device, k,
+                       down_vocab_size, down_unk_idx):
+    down_x, up_x, up_x_type, down_x_type, up_depth, up_schema, down_lca, q_x, copy_mask, src2trg_map, AOD_mask, AOA_mask = batch_data
+
+    up_node_num = get_lens(up_x, up_pad_idx)
+    down_node_num = get_lens(down_x, down_pad_idx)
+    q_num = get_lens(q_x, down_pad_idx)
+
+    up_x = up_x[:, :up_node_num].to(device)
+    down_x = down_x[:, :down_node_num].to(device)
+    up_x_type = up_x_type[:, :up_node_num].to(device)
+    down_x_type = down_x_type[:, :down_node_num].to(device)
+    up_depth = up_depth[:, :up_node_num, :up_node_num].to(device)
+    up_schema = up_schema[:, :up_node_num, :up_node_num].to(device)
+    down_lca = down_lca[:, :down_node_num, :down_node_num].to(device)
+    q_x = q_x[:, :q_num]
+    label = q_x[:, 1:].to(device)
+    q_x[range(q_x.size(0)), get_length(q_x, down_pad_idx) - 1] = down_pad_idx
+    q_x = q_x[:, :-1]
+    q_x[q_x >= down_vocab_size] = down_unk_idx
+    q_x = q_x.to(device)
+    copy_mask = copy_mask[:, :down_node_num].to(device)
+    src2trg_map = src2trg_map[:, :down_node_num].to(device)
+    AOD_mask = AOD_mask[:, :up_node_num, :down_node_num].to(device)
+    AOA_mask = AOA_mask[:, :down_node_num, :up_node_num].to(device)
+    down_dist = torch.tensor(get_position_relations(
+        down_node_num.item(), k)).expand(up_x.size(0), -1,
+                                         -1).type(torch.long).to(device)
+
+    return (up_x, up_x_type, down_x, down_x_type, up_depth, up_schema,
+            down_dist, down_lca, q_x, AOA_mask, AOD_mask, copy_mask,
+            src2trg_map), label
+
+
+def get_seq_batch_data(batch_data,
+                       pad_idx,
+                       device,
+                       vocab_size,
+                       unk_idx,
+                       k=None):
+    nodes, q, copy_mask, src2trg_map = batch_data
+
+    node_num = get_lens(nodes, pad_idx).item()
+    nodes = nodes[:, :node_num].to(device)
+    q_num = get_lens(q, pad_idx).item()
+    q_x = q[:, :q_num]
+    label = q_x[:, 1:].to(device)
+    q_x[range(q_x.size(0)), get_length(q_x, pad_idx) - 1] = pad_idx
+    q_x = q_x[:, :-1]
+    q_x[q_x >= vocab_size] = unk_idx
+    q_x = q_x.to(device)
+
+    copy_mask = copy_mask[:, :node_num].to(device)
+    src2trg_map = src2trg_map[:, :node_num].to(device)
+
+    if k is not None:
+        rela_dist = torch.tensor(get_position_relations(node_num, k)).expand(
+            q.size(0), -1, -1).type(torch.long).to(device)
+        return (nodes, q_x, rela_dist, copy_mask, src2trg_map), label
+    else:
+        return (nodes, q_x, copy_mask, src2trg_map), label
+
+
+# TODO
+def get_single_graph_data():
+    pass

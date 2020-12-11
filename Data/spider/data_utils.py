@@ -12,15 +12,13 @@ from Data.vocab import Vocabulary
 import numpy as np
 import json
 import re
-from Data.utils import rm_contents_in_brackets, get_flatten_data, build_vocab, pad, pad_and_transform_cliques, get_clique_graph, get_relations, build_graphs_and_depths, get_up_schemas, pad_up_to_down_masks, build_up_vocab
+from Data.utils import rm_contents_in_brackets, get_flatten_data, build_vocab, pad, get_relations, build_graphs_and_depths, get_up_schemas, pad_up_to_down_masks, build_up_vocab
 from nltk.tokenize import TweetTokenizer
 from Utils.const import SPIDER_MONTH, SPIDER_MAP
 from Data.spider.parse import get_schemas_from_json, Schema
 from Data.spider.contruct_tree import build_tree
 from Data.spider.generate import get_normalized_sql
 import logging
-import torch
-from Utils.tools import get_position_relations
 
 
 def load_dbs(table_file: str) -> Dict[str, Dict[str, Dict[str, str]]]:
@@ -600,7 +598,7 @@ def add_schemas(tables_map, vocab):
     return vocab
 
 
-def load_data(
+def load_spider_data(
     data_files: List[str],
     table_file: str,
     down_vocab: Vocabulary = None,
@@ -681,10 +679,10 @@ def load_data(
     return down_nodes, up_nodes, up_nodes_types, down_nodes_types, up_depths, up_schemas, down_to_up_relations, questions, copy_masks, src2trg_map_list, origin_ques, down_vocab, up_vocab, val_map_list, idx2tok_map_list, up_to_down_masks, down_to_up_masks
 
 
-def load_seq2seq_data(data_files: List[str],
-                      table_file: str,
-                      vocab: Vocabulary = None,
-                      min_freq: int = 1):
+def load_spider_seq2seq_data(data_files: List[str],
+                             table_file: str,
+                             vocab: Vocabulary = None,
+                             min_freq: int = 1):
     # load data from original files
     logging.info("Start loading data from origin files.")
     samples, val_map_list = get_sqls_and_questions(data_files, table_file)
@@ -723,74 +721,3 @@ def load_seq2seq_data(data_files: List[str],
 
     logging.info("Data has been loaded successfully.")
     return sqls, questions, copy_masks, origin_ques, vocab, val_map_list, src2trg_map_list, idx2tok_map_list
-
-
-def get_lens(x, pad):
-    return torch.max(torch.sum(x != pad, dim=1))
-
-
-def get_length(x, pad):
-    return torch.sum(x != pad, dim=1)
-
-
-def get_RGT_batch_data(batch_data, up_pad_idx, down_pad_idx, device, k,
-                       down_vocab_size, down_unk_idx):
-    down_x, up_x, up_x_type, down_x_type, up_depth, up_schema, down_lca, q_x, copy_mask, src2trg_map, AOD_mask, AOA_mask = batch_data
-
-    up_node_num = get_lens(up_x, up_pad_idx)
-    down_node_num = get_lens(down_x, down_pad_idx)
-    q_num = get_lens(q_x, down_pad_idx)
-
-    up_x = up_x[:, :up_node_num].to(device)
-    down_x = down_x[:, :down_node_num].to(device)
-    up_x_type = up_x_type[:, :up_node_num].to(device)
-    down_x_type = down_x_type[:, :down_node_num].to(device)
-    up_depth = up_depth[:, :up_node_num, :up_node_num].to(device)
-    up_schema = up_schema[:, :up_node_num, :up_node_num].to(device)
-    down_lca = down_lca[:, :down_node_num, :down_node_num].to(device)
-    q_x = q_x[:, :q_num]
-    label = q_x[:, 1:].to(device)
-    q_x[range(q_x.size(0)), get_length(q_x, down_pad_idx) - 1] = down_pad_idx
-    q_x = q_x[:, :-1]
-    q_x[q_x >= down_vocab_size] = down_unk_idx
-    q_x = q_x.to(device)
-    copy_mask = copy_mask[:, :down_node_num].to(device)
-    src2trg_map = src2trg_map[:, :down_node_num].to(device)
-    AOD_mask = AOD_mask[:, :up_node_num, :down_node_num].to(device)
-    AOA_mask = AOA_mask[:, :down_node_num, :up_node_num].to(device)
-    down_dist = torch.tensor(get_position_relations(
-        down_node_num.item(), k)).expand(up_x.size(0), -1,
-                                         -1).type(torch.long).to(device)
-
-    return (up_x, up_x_type, down_x, down_x_type, up_depth, up_schema,
-            down_dist, down_lca, q_x, AOA_mask, AOD_mask, copy_mask,
-            src2trg_map), label
-
-
-def get_seq_batch_data(batch_data,
-                       pad_idx,
-                       device,
-                       vocab_size,
-                       unk_idx,
-                       k=None):
-    nodes, q, copy_mask, src2trg_map = batch_data
-
-    node_num = get_lens(nodes, pad_idx).item()
-    nodes = nodes[:, :node_num].to(device)
-    q_num = get_lens(q, pad_idx).item()
-    q_x = q[:, :q_num]
-    label = q_x[:, 1:].to(device)
-    q_x[range(q_x.size(0)), get_length(q_x, pad_idx) - 1] = pad_idx
-    q_x = q_x[:, :-1]
-    q_x[q_x >= vocab_size] = unk_idx
-    q_x = q_x.to(device)
-
-    copy_mask = copy_mask[:, :node_num].to(device)
-    src2trg_map = src2trg_map[:, :node_num].to(device)
-
-    if k is not None:
-        rela_dist = torch.tensor(get_position_relations(node_num, k)).expand(
-            q.size(0), -1, -1).type(torch.long).to(device)
-        return (nodes, q_x, rela_dist, copy_mask, src2trg_map), label
-    else:
-        return (nodes, q_x, copy_mask, src2trg_map), label
