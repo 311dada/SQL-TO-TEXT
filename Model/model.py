@@ -290,7 +290,7 @@ class AbsoluteTransformer(TransformerBase):
         else:
             mask = bin2inf(graphs).unsqueeze(1)
 
-        nodes = self.drop(self.init_prj(self.embedding(nodes)))
+        nodes = self.drop(self.init_prj(self.pos_embed(self.embedding(nodes))))
         nodes = super(AbsoluteTransformer, self).encode(nodes, mask=mask)
 
         nodes = self.drop(self.dec_prj(nodes))
@@ -433,9 +433,41 @@ class RelativeTransformer(TransformerBase):
         return out
 
 
-# TODO GAT
-class GAT(TransformerBase):
-    pass
+# GAT
+class GAT(AbsoluteTransformer):
+    def __init__(self,
+                 embed_dim,
+                 vocab_size,
+                 d_model,
+                 d_ff,
+                 head_num,
+                 layer_num,
+                 hid_size,
+                 dropout,
+                 pad_idx,
+                 max_oov_num=50,
+                 max_len=100,
+                 copy=True):
+        super(GAT, self).__init__(embed_dim,
+                                  vocab_size,
+                                  d_model,
+                                  d_ff,
+                                  head_num,
+                                  layer_num,
+                                  hid_size,
+                                  dropout,
+                                  pad_idx,
+                                  max_oov_num=max_oov_num,
+                                  max_len=max_len,
+                                  copy=copy)
+
+    # TODO
+    def encode(self, nodes, graphs):
+        pass
+
+    # TODO
+    def forward(self):
+        pass
 
 
 # TODO GCN
