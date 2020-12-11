@@ -3,8 +3,8 @@ from Utils.fix_seed import fix_seed
 import torch
 import logging
 from Data.spider.dataset import SpiderDataset, SeqSpiderDataset
-from Model.model import RGT, RelativeTransformer
-from Utils.const import UP_SCHEMA_NUM, UP_TYPE_NUM, DOWN_TYPE_NUM, RGT_VOCAB_PATH, RGT_MODEL_PATH, RELATIVE_VOCAB_PATH, RELATIVE_MODEL_PATH
+from Model.model import RGT, RelativeTransformer, AbsoluteTransformer
+from Utils.const import UP_SCHEMA_NUM, UP_TYPE_NUM, DOWN_TYPE_NUM, RGT_VOCAB_PATH, RGT_MODEL_PATH, SEQ_VOCAB_PATH, RELATIVE_MODEL_PATH, TRANSFORMER_MODEL_PATH
 import os
 from torch.utils.data import DataLoader
 from Data.spider.data_utils import get_RGT_batch_data, get_seq_batch_data
@@ -65,9 +65,13 @@ def train(model, batch, label, optimizer, Loss, vocab_size, unk_idx, MODEL):
         out = model(up_x, up_type_x, down_x, down_type_x, up_depth, up_schema,
                     down_dist, down_lca, q_x, AOA_mask, AOD_mask, copy_mask,
                     src2trg_map)
-    elif MODEL == "Relative-Transformer":
+    elif MODEL in ["Relative-Transformer", "Transformer"]:
         nodes, questions, rela_dist, copy_mask, src2trg_map = batch
-        out = model(nodes, rela_dist, questions, copy_mask, src2trg_map)
+
+        if MODEL == "Relative-Transformer":
+            out = model(nodes, rela_dist, questions, copy_mask, src2trg_map)
+        elif MODEL == "Transformer":
+            out = model(nodes, questions, copy_mask, src2trg_map)
     else:
         # TODO
         pass
@@ -126,13 +130,20 @@ def eval(model,
                 next_input[next_input >= down_vocab.size] = down_vocab.unk_idx
                 inputs = next_input
 
-        elif MODEL == "Relative-Transformer":
+        elif MODEL in ["Relative-Transformer", "Transformer"]:
             batch, label = get_seq_batch_data(batch_data, down_vocab.pad_idx,
                                               device, down_vocab.size,
                                               down_vocab.unk_idx,
                                               args.down_max_dist)
             nodes, questions, rela_dist, copy_mask, src2trg_map = batch
-            nodes, hidden, mask = model.encode(nodes, rela_dist)
+
+            if MODEL == "Relative-Transformer":
+                nodes, hidden, mask = model.encode(nodes, rela_dist)
+            elif MODEL == "Transformer":
+                nodes, hidden, mask = model.encode(nodes)
+            else:
+                # TODO
+                pass
 
             inputs = questions[:, 0].view(-1, 1)
 
@@ -200,7 +211,7 @@ def run(args):
                 os.makedirs(RGT_VOCAB_PATH)
             up_vocab.save(os.path.join(RGT_VOCAB_PATH, 'up.vocab'))
             down_vocab.save(os.path.join(RGT_VOCAB_PATH, 'down.vocab'))
-        elif args.model == "Relative-Transformer":
+        elif args.model in ["Relative-Transformer", "Transformer"]:
             train_set = SeqSpiderDataset(train_data_files,
                                          table_file,
                                          min_freq=args.min_freq)
@@ -209,9 +220,9 @@ def run(args):
                                        vocab=train_set.vocab)
             vocab = train_set.vocab
 
-            if not os.path.exists(RELATIVE_VOCAB_PATH):
-                os.makedirs(RELATIVE_VOCAB_PATH)
-            vocab.save(os.path.join(RELATIVE_VOCAB_PATH, "relative.vocab"))
+            if not os.path.exists(SEQ_VOCAB_PATH):
+                os.makedirs(SEQ_VOCAB_PATH)
+            vocab.save(os.path.join(SEQ_VOCAB_PATH, "relative.vocab"))
 
         else:
             # TODO
@@ -242,6 +253,14 @@ def run(args):
                                     args.hid_size, args.dropout, vocab.pad_idx,
                                     args.down_max_dist, args.max_oov_num,
                                     args.copy, args.rel_share, args.k_v_share)
+
+    elif args.model == "Transformer":
+        model = AbsoluteTransformer(args.down_embed_dim, vocab.size,
+                                    args.down_d_model, args.down_d_ff,
+                                    args.down_head_num, args.down_layer_num,
+                                    args.hid_size, args.dropout, vocab.pad_idx,
+                                    args.max_oov_num, args.copy)
+
     else:
         # TODO
         pass
@@ -259,7 +278,7 @@ def run(args):
     Loss = None
     if args.model == "RGT":
         Loss = torch.nn.NLLLoss(ignore_index=down_vocab.pad_idx)
-    elif args.model == "Relative-Transformer":
+    elif args.model in ["Relative-Transformer", "Transformer"]:
         Loss = torch.nn.NLLLoss(ignore_index=vocab.pad_idx)
     else:
         # TODO
@@ -280,6 +299,8 @@ def run(args):
         MODEL = RGT_MODEL_PATH
     elif args.model == "Relative-Transformer":
         MODEL = RELATIVE_MODEL_PATH
+    elif args.model == "Transformer":
+        MODEL = TRANSFORMER_MODEL_PATH
     else:
         # TODO
         pass
@@ -301,7 +322,7 @@ def run(args):
                                                   args.down_max_dist,
                                                   down_vocab.size,
                                                   down_vocab.unk_idx)
-            elif args.model == "Relative-Transformer":
+            elif args.model in ["Relative-Transformer", "Transformer"]:
                 batch, label = get_seq_batch_data(batch_data, vocab.pad_idx,
                                                   device, vocab.size,
                                                   vocab.unk_idx,
@@ -315,7 +336,7 @@ def run(args):
                 train_loss = train(model, batch, label, optimizer, Loss,
                                    down_vocab.size, down_vocab.unk_idx,
                                    args.model)
-            elif args.model == "Relative-Transformer":
+            elif args.model in ["Relative-Transformer", "Transformer"]:
                 train_loss = train(model, batch, label, optimizer, Loss,
                                    vocab.size, vocab.unk_idx, args.model)
             else:
@@ -347,7 +368,7 @@ def run(args):
                     logging.info(
                         f"epoch {epoch}, batch {batch_step}: [dev bleu-> {round(dev_bleu, 4)}]"
                     )
-                elif args.model == "Relative-Transformer":
+                elif args.model in ["Relative-Transformer", "Transformer"]:
                     train_bleu = eval(model, train_set, None, vocab, args,
                                       device, args.model)
 

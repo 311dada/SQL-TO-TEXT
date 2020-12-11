@@ -146,5 +146,13 @@ UP_SCHEMA_NUM = len(SCHEMA_RELATIONS)
 RGT_VOCAB_PATH = "Cache/vocab/RGT"
 RGT_MODEL_PATH = "Checkpoints/RGT"
 
-RELATIVE_VOCAB_PATH = "Cache/vocab/RelativeTransformer"
+# RELATIVE_VOCAB_PATH = "Cache/vocab/RelativeTransformer"
 RELATIVE_MODEL_PATH = "Checkpoints/RelativeTransformer"
+
+# TRANSFORMER_VOCAB_PATH = "Cache/vocab/Transformer"
+TRANSFORMER_MODEL_PATH = "Checkpoints/Transformer"
+
+SEQ_VOCAB_PATH = "Cache/vocab/Seq"
+SEQ_MODEL_PATH = "Checkpoints/Seq"
+
+

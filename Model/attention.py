@@ -59,7 +59,7 @@ class RelationMultiHeadAttention(nn.Module):
                  d_model,
                  d_rel,
                  rel_share=True,
-                 k_v_share=True,
+                 k_v_share=False,
                  mode="concat"):
         super(RelationMultiHeadAttention, self).__init__()
 
@@ -91,7 +91,7 @@ class RelationMultiHeadAttention(nn.Module):
         self.final_linear = nn.Linear(d_model, d_model)
 
     def forward(self, q, k, v, r_k=None, r_v=None, mask=None):
-        assert not self.k_v_share and r_v is not None
+        assert (not self.k_v_share and r_v is not None) or r_v is None
         node_num = q.size(1)
 
         if r_k is not None:

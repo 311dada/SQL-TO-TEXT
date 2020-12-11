@@ -696,7 +696,6 @@ def load_seq2seq_data(data_files: List[str],
     dbs = list(map(lambda sample: sample["db_id"], samples))
     sqls, cliques, copy_masks = get_sequences(sqls, dbs, tables_map,
                                               table_file)
-    # FIXME: add CLS token
     # sqls = list(map(lambda sql: ['CLS'] + sql, sqls))
 
     origin_ques = list(map(lambda sample: sample["origin_ques"], samples))
