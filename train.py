@@ -3,8 +3,8 @@ from Utils.fix_seed import fix_seed
 import torch
 import logging
 from Data.spider.dataset import SpiderDataset, SeqSpiderDataset
-from Model.model import RGT, RelativeTransformer, AbsoluteTransformer
-from Utils.const import UP_SCHEMA_NUM, UP_TYPE_NUM, DOWN_TYPE_NUM, RGT_VOCAB_PATH, RGT_MODEL_PATH, SEQ_VOCAB_PATH, RELATIVE_MODEL_PATH, TRANSFORMER_MODEL_PATH
+from Model.model import RGT, RelativeTransformer, AbsoluteTransformer, BiLSTM
+from Utils.const import UP_SCHEMA_NUM, UP_TYPE_NUM, DOWN_TYPE_NUM, RGT_VOCAB_PATH, RGT_MODEL_PATH, SEQ_VOCAB_PATH, RELATIVE_MODEL_PATH, TRANSFORMER_MODEL_PATH, BILSTM_MODEL_PATH
 import os
 from torch.utils.data import DataLoader
 from Data.spider.data_utils import get_RGT_batch_data, get_seq_batch_data
@@ -65,12 +65,12 @@ def train(model, batch, label, optimizer, Loss, vocab_size, unk_idx, MODEL):
         out = model(up_x, up_type_x, down_x, down_type_x, up_depth, up_schema,
                     down_dist, down_lca, q_x, AOA_mask, AOD_mask, copy_mask,
                     src2trg_map)
-    elif MODEL in ["Relative-Transformer", "Transformer"]:
+    elif MODEL in ["Relative-Transformer", "Transformer", "BiLSTM"]:
         nodes, questions, rela_dist, copy_mask, src2trg_map = batch
 
         if MODEL == "Relative-Transformer":
             out = model(nodes, rela_dist, questions, copy_mask, src2trg_map)
-        elif MODEL == "Transformer":
+        elif MODEL in ["Transformer", "BiLSTM"]:
             out = model(nodes, questions, copy_mask, src2trg_map)
     else:
         # TODO
@@ -130,7 +130,7 @@ def eval(model,
                 next_input[next_input >= down_vocab.size] = down_vocab.unk_idx
                 inputs = next_input
 
-        elif MODEL in ["Relative-Transformer", "Transformer"]:
+        elif MODEL in ["Relative-Transformer", "Transformer", "BiLSTM"]:
             batch, label = get_seq_batch_data(batch_data, down_vocab.pad_idx,
                                               device, down_vocab.size,
                                               down_vocab.unk_idx,
@@ -139,7 +139,7 @@ def eval(model,
 
             if MODEL == "Relative-Transformer":
                 nodes, hidden, mask = model.encode(nodes, rela_dist)
-            elif MODEL == "Transformer":
+            elif MODEL in ["Transformer", "BiLSTM"]:
                 nodes, hidden, mask = model.encode(nodes)
             else:
                 # TODO
@@ -211,7 +211,7 @@ def run(args):
                 os.makedirs(RGT_VOCAB_PATH)
             up_vocab.save(os.path.join(RGT_VOCAB_PATH, 'up.vocab'))
             down_vocab.save(os.path.join(RGT_VOCAB_PATH, 'down.vocab'))
-        elif args.model in ["Relative-Transformer", "Transformer"]:
+        elif args.model in ["Relative-Transformer", "Transformer", "BiLSTM"]:
             train_set = SeqSpiderDataset(train_data_files,
                                          table_file,
                                          min_freq=args.min_freq)
@@ -260,6 +260,10 @@ def run(args):
                                     args.down_head_num, args.down_layer_num,
                                     args.hid_size, args.dropout, vocab.pad_idx,
                                     args.max_oov_num, args.copy)
+    elif args.model == "BiLSTM":
+        model = BiLSTM(args.down_embed_dim, vocab.size, args.hid_size,
+                       vocab.pad_idx, args.dropout, args.max_oov_num,
+                       args.copy)
 
     else:
         # TODO
@@ -278,7 +282,7 @@ def run(args):
     Loss = None
     if args.model == "RGT":
         Loss = torch.nn.NLLLoss(ignore_index=down_vocab.pad_idx)
-    elif args.model in ["Relative-Transformer", "Transformer"]:
+    elif args.model in ["Relative-Transformer", "Transformer", "BiLSTM"]:
         Loss = torch.nn.NLLLoss(ignore_index=vocab.pad_idx)
     else:
         # TODO
@@ -301,6 +305,8 @@ def run(args):
         MODEL = RELATIVE_MODEL_PATH
     elif args.model == "Transformer":
         MODEL = TRANSFORMER_MODEL_PATH
+    elif args.model == "BiLSTM":
+        MODEL = BILSTM_MODEL_PATH
     else:
         # TODO
         pass
@@ -322,7 +328,7 @@ def run(args):
                                                   args.down_max_dist,
                                                   down_vocab.size,
                                                   down_vocab.unk_idx)
-            elif args.model in ["Relative-Transformer", "Transformer"]:
+            elif args.model in ["Relative-Transformer", "Transformer", "BiLSTM"]:
                 batch, label = get_seq_batch_data(batch_data, vocab.pad_idx,
                                                   device, vocab.size,
                                                   vocab.unk_idx,
@@ -336,7 +342,7 @@ def run(args):
                 train_loss = train(model, batch, label, optimizer, Loss,
                                    down_vocab.size, down_vocab.unk_idx,
                                    args.model)
-            elif args.model in ["Relative-Transformer", "Transformer"]:
+            elif args.model in ["Relative-Transformer", "Transformer", "BiLSTM"]:
                 train_loss = train(model, batch, label, optimizer, Loss,
                                    vocab.size, vocab.unk_idx, args.model)
             else:
@@ -368,7 +374,7 @@ def run(args):
                     logging.info(
                         f"epoch {epoch}, batch {batch_step}: [dev bleu-> {round(dev_bleu, 4)}]"
                     )
-                elif args.model in ["Relative-Transformer", "Transformer"]:
+                elif args.model in ["Relative-Transformer", "Transformer", "BiLSTM"]:
                     train_bleu = eval(model, train_set, None, vocab, args,
                                       device, args.model)
 

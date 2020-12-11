@@ -443,9 +443,75 @@ class GCN(nn.Module):
     pass
 
 
-# TODO BiLSTM
+# BiLSTM
 class BiLSTM(nn.Module):
-    pass
+    def __init__(self,
+                 embed_dim,
+                 vocab_size,
+                 hid_size,
+                 pad_idx,
+                 dropout,
+                 max_oov_num: int = 50,
+                 copy=True) -> None:
+        super(BiLSTM, self).__init__()
+
+        self.embedding = nn.Embedding(vocab_size, embed_dim)
+        self.pad_idx = pad_idx
+
+        self.bilstm_encoder = nn.LSTM(hid_size,
+                                      hid_size,
+                                      batch_first=True,
+                                      bidirectional=True)
+
+        self.lstm_decoder = SimpleLSTMDecoder(embed_dim, hid_size, vocab_size,
+                                              max_oov_num, copy)
+        self.drop = nn.Dropout(dropout)
+
+    def encode(self, nodes):
+        pad_mask = self.get_mask(nodes)
+        lens = self.get_len(nodes)
+
+        nodes = self.drop(self.embedding(nodes))
+        packed = nn.utils.rnn.pack_padded_sequence(nodes,
+                                                   lens,
+                                                   batch_first=True,
+                                                   enforce_sorted=False)
+        nodes, (h, c) = self.bilstm_encoder(packed)
+        nodes, _ = nn.utils.rnn.pad_packed_sequence(nodes, batch_first=True)
+
+        bsz, node_num, _ = nodes.size()
+        nodes = nodes.reshape(bsz, node_num, -1, 2).sum(dim=-1)
+
+        h = h.sum(dim=0, keepdim=True)
+        c = torch.zeros_like(h)
+        hidden = (h, c)
+
+        return nodes, hidden, bin2inf(pad_mask).unsqueeze(1)
+
+    def decode(self,
+               questions,
+               nodes,
+               hidden,
+               mask=None,
+               copy_mask=None,
+               src2trg_map=None):
+        questions = self.embedding(questions)
+        return self.lstm_decoder(questions, hidden, nodes, mask,
+                                 bin2inf(copy_mask).unsqueeze(1), src2trg_map)
+
+    def forward(self, nodes, questions, copy_mask=None, src2trg_map=None):
+        nodes, hidden, mask = self.encode(nodes)
+        out, _ = self.decode(questions, nodes, hidden, mask, copy_mask,
+                             src2trg_map)
+
+        return out
+
+    def get_len(self, x):
+        return torch.sum(x != self.pad_idx, dim=1)
+
+    def get_mask(self, x):
+        mask = get_bin_mask(x, self.pad_idx)
+        return mask
 
 
 # TODO TreeLSTM

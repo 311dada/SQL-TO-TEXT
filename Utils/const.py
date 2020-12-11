@@ -155,4 +155,4 @@ TRANSFORMER_MODEL_PATH = "Checkpoints/Transformer"
 SEQ_VOCAB_PATH = "Cache/vocab/Seq"
 SEQ_MODEL_PATH = "Checkpoints/Seq"
 
-
+BILSTM_MODEL_PATH = "Checkpoints/BiLSTM"
