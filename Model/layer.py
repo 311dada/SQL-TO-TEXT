@@ -9,6 +9,7 @@ import torch.nn as nn
 from Model.attention import RelationMultiHeadAttention
 import torch
 import math
+from torch.autograd import Variable
 
 
 class PositionalEncoding(nn.Module):
@@ -24,15 +25,17 @@ class PositionalEncoding(nn.Module):
             raise ValueError("Cannot use sin/cos positional encoding with "
                              "odd dim (got dim={:d})".format(dim))
         pe = torch.zeros(max_len, dim)
-        position = torch.arange(0, max_len).unsqueeze(1)
-        div_term = torch.exp((torch.arange(0, dim, 2, dtype=torch.float) *
-                              -(math.log(10000.0) / dim)))
-        pe[:, 0::2] = torch.sin(position.float() * div_term)
-        pe[:, 1::2] = torch.cos(position.float() * div_term)
-        self.pe = pe.unsqueeze(1)
+        for pos in range(max_len):
+            for i in range(0, dim, 2):
+                pe[pos, i] = math.sin(pos / (10000**((2 * i) / dim)))
+                pe[pos, i + 1] = math.cos(pos / (10000**((2 * (i + 1)) / dim)))
+        self.pe = pe.unsqueeze(0)
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
         self.dim = dim
+
+        # self.pos_embed = nn.Embedding(max_len, dim)
+        # self.position = torch.arange(0, max_len)
 
     def forward(self, emb, step=None):
         """Embed inputs.
@@ -42,15 +45,16 @@ class PositionalEncoding(nn.Module):
             step (int or NoneType): If stepwise (``seq_len = 1``), use
                 the encoding for this position.
         """
-        self.pe = self.pe.to(emb.device)
+        emb = emb * math.sqrt(self.dim)
         if step is None:
-            if self.pe.size(0) < emb.size(1):
+            if self.pe.size(1) < emb.size(1):
                 raise ValueError(
                     f"Sequence is {emb.size(1)} but PositionalEncoding is"
-                    f" limited to {self.pe.size(0)}. See max_len argument.")
-            emb = emb + self.pe[:emb.size(0)]
+                    f" limited to {self.pe.size(1)}. See max_len argument.")
+            emb = emb + Variable(self.pe[:, :emb.size(1)],
+                                 requires_grad=False).cuda()
         else:
-            emb = emb + self.pe[step]
+            emb = emb + Variable(self.pe[step], requires_grad=False).cuda()
         emb = self.dropout(emb)
         return emb
 
