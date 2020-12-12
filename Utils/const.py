@@ -125,6 +125,22 @@ UP_TYPES = {
 
 DOWN_TYPES = {"distinct": 0, "agg": 1, "token": 2, "order": 3, "not": 4}
 
+TYPES = {
+    "table": 0,
+    "column": 1,
+    "clause": 2,
+    "set": 3,
+    "unit": 4,
+    "condition": 5,
+    "root": 6,
+    "logic": 7,
+    "distinct": 8,
+    "agg": 9,
+    "token": 10,
+    "order": 11,
+    "not": 12
+}
+
 SCHEMA_RELATIONS = {
     "SAME-TABLE": 0,
     "FOREIGN-KEY-COL-F": 1,
@@ -142,6 +158,7 @@ SCHEMA_RELATIONS = {
 UP_TYPE_NUM = len(UP_TYPES)
 DOWN_TYPE_NUM = len(DOWN_TYPES)
 UP_SCHEMA_NUM = len(SCHEMA_RELATIONS)
+TYPE_NUM = len(TYPES)
 
 RGT_VOCAB_PATH = "Cache/vocab/RGT"
 RGT_MODEL_PATH = "Checkpoints/RGT"
@@ -153,6 +170,9 @@ RELATIVE_MODEL_PATH = "Checkpoints/RelativeTransformer"
 TRANSFORMER_MODEL_PATH = "Checkpoints/Transformer"
 
 SEQ_VOCAB_PATH = "Cache/vocab/Seq"
-SEQ_MODEL_PATH = "Checkpoints/Seq"
 
 BILSTM_MODEL_PATH = "Checkpoints/BiLSTM"
+
+SINGLE_GRAPH_VOCAB_PATH = "Cache/vocab/SingleGraph"
+
+GAT_MODEL_PATH = "Checkpoints/GAT"

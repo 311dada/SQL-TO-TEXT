@@ -122,13 +122,14 @@ class SingleGraphDataset(Dataset):
         else:
             # TODO
             pass
-        nodes, questions, graphs, copy_masks, origin_ques, vocab, val_map_list, src2rrg_map_list, idx2tok_map_list = load_single_graph_data(
+        nodes, types, questions, graphs, copy_masks, origin_ques, vocab, val_map_list, src2trg_map_list, idx2tok_map_list = load_single_graph_data(
             data_files, table_file, vocab, min_freq)
 
         self.nodes = torch.tensor(nodes, dtype=torch.long)
+        self.types = torch.tensor(types, dtype=torch.long)
         self.questions = torch.tensor(questions, dtype=torch.long)
         self.copy_masks = torch.tensor(copy_masks, dtype=torch.long)
-        self.src2trg_map = torch.tensor(src2rrg_map_list, dtype=torch.long)
+        self.src2trg_map = torch.tensor(src2trg_map_list, dtype=torch.long)
         self.graphs = torch.tensor(graphs, dtype=torch.long)
 
         self.origin_questions = origin_ques
@@ -140,5 +141,6 @@ class SingleGraphDataset(Dataset):
         return self.nodes.size(0)
 
     def __getitem__(self, index: int):
-        return self.nodes[index], self.questions[index], self.graphs[
-            index], self.copy_masks[index], self.src2trg_map[index]
+        return self.nodes[index], self.types[index], self.questions[
+            index], self.graphs[index], self.copy_masks[
+                index], self.src2trg_map[index]

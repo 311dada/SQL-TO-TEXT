@@ -12,7 +12,7 @@ from Data.vocab import Vocabulary
 import numpy as np
 import json
 import re
-from Data.utils import rm_contents_in_brackets, get_flatten_data, build_vocab, pad, get_relations, build_graphs_and_depths, get_up_schemas, pad_up_to_down_masks, build_up_vocab
+from Data.utils import get_single_graph_data, rm_contents_in_brackets, get_flatten_data, build_vocab, pad, get_relations, build_graphs_and_depths, get_up_schemas, pad_up_to_down_masks, build_up_vocab, build_graph
 from nltk.tokenize import TweetTokenizer
 from Utils.const import SPIDER_MONTH, SPIDER_MAP
 from Data.spider.parse import get_schemas_from_json, Schema
@@ -737,6 +737,38 @@ def load_spider_single_graph_data(data_files,
     dbs = list(map(lambda sample: sample["db_id"], samples))
     trees = get_trees(sqls, dbs, tables_map, table_file)
 
-    # TODO
+    logging.info("Start getting flatten data.")
+    nodes, types, graphs, copy_masks = get_single_graph_data(trees)
 
-    return nodes, questions, graphs, copy_masks, origin_ques, vocab, val_map_list, src2rrg_map_list, idx2tok_map_list
+    origin_ques = list(map(lambda sample: sample["origin_ques"], samples))
+    proc_ques = list(map(lambda sample: sample["proc_ques"], samples))
+
+    if vocab is None:
+        logging.info("Start building vocabulary.")
+        # build vocabulary
+        vocab = build_vocab(nodes, proc_ques, min_freq=min_freq)
+        vocab = add_schemas(tables_map, vocab)
+
+    logging.info("Start post processing, such as padding.")
+    # pad sqls, questions, copy_masks and transform them to idx representation
+    nodes, src2trg_map_list, idx2tok_map_list, tok2idx_map_list = vocab.to_ids_2_dim(
+        nodes, unk=True)
+    logging.info("nodes has been padded.")
+    questions = vocab.to_ids_2_dim(proc_ques,
+                                   add_end=True,
+                                   TOK2IDX_MAP_LIST=tok2idx_map_list)
+    logging.info("question has been padded.")
+    node_num = len(nodes[0])
+    logging.info(f"maximum node number: {node_num}")
+    copy_masks = pad(copy_masks, max_len=node_num, pad_val=0)
+    logging.info("copy mask has been padded.")
+
+    types = pad(types, max_len=node_num, pad_val=0)
+    logging.info("type has been padded.")
+
+    graphs = build_graph(graphs, node_num)
+    logging.info("graph has been padded.")
+
+    logging.info("Data has been loaded successfully.")
+
+    return nodes, types, questions, graphs, copy_masks, origin_ques, vocab, val_map_list, src2trg_map_list, idx2tok_map_list

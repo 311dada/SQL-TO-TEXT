@@ -63,9 +63,9 @@ class TreeNode:
         self.schema = schema
 
     def display(self):
-        # print(
-        #     f"{self.name}: {' '.join(map(lambda x: x.name, self.children))}\n")
-        print(f"{self.name}: {self.ancestors}")
+        print(
+            f"{self.name}: {' '.join(map(lambda x: x.name, self.children))}\n")
+        # print(f"{self.name}: {self.ancestors}")
         for child in self.children:
             child.display()
 
@@ -164,7 +164,23 @@ def flatten(root: TreeNode, k: int = 4) -> List[TreeNode]:
     return seq_data, graph_data, graph, depth, head_mask, up_to_down_mask, down_to_up_mask
 
 
-# N, k, leaf_num, dim
+def linearize(root: TreeNode, idx: int):
+    root.set_idx(idx)
+
+    nodes = [root]
+    graph = []
+
+    start = idx + 1
+    cur_num = 1
+    for child in root.children:
+        nodes_, graph_, num = linearize(child, start)
+        nodes += nodes_
+        start += num
+        cur_num += num
+        graph += graph_
+        graph.append([idx, child.idx])
+        graph.append([child.idx, idx])
+    return nodes, graph, cur_num
 
 
 def get_head_mask_helper(root, k):

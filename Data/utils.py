@@ -7,11 +7,11 @@ Description: some utilities used by both wikisql and spider
 FilePath: /hpc/Data/utils.py
 '''
 from typing import List, Tuple, Dict
-from Utils.tree import flatten, TreeNode, get_all_nodes, set_max_depth
+from Utils.tree import flatten, TreeNode, get_all_nodes, set_max_depth, linearize
 from Data.vocab import Vocabulary
 from collections import Counter
 import numpy as np
-from Utils.const import SCHEMA_RELATIONS, UP_TYPES, DOWN_TYPES
+from Utils.const import SCHEMA_RELATIONS, TYPES, UP_TYPES, DOWN_TYPES
 import torch
 from Utils.tools import get_position_relations
 
@@ -93,6 +93,33 @@ def get_flatten_data(
     mixed_head_masks = pad_head_mask(mixed_head_masks, leaf_num)
 
     return down_nodes, up_nodes, up_nodes_types, down_nodes_types, up_graphs, up_depths, up_schemas, copy_masks, mixed_head_masks, up_to_down_masks, down_to_up_masks
+
+
+def get_single_graph_data(trees):
+    nodes, types, graphs, copy_masks = [], [], [], []
+    for tree in trees:
+        node_, graph_, _ = linearize(tree, 0)
+        nodes_ = list(map(lambda x: x.name, node_))
+        types_ = list(map(lambda x: TYPES[x.type], node_))
+        copy_mask = list(map(lambda x: x.copy_mark, node_))
+        nodes.append(nodes_)
+        types.append(types_)
+        graphs.append(graph_)
+        copy_masks.append(copy_mask)
+
+    return nodes, types, graphs, copy_masks
+
+
+def build_graph(graphs, node_num):
+    Graphs = []
+
+    for graph in graphs:
+        G = np.zeros((node_num, node_num))
+        start, end = list(zip(*graph))
+        G[start, end] = 1
+        Graphs.append(np.expand_dims(G, 0))
+
+    return np.concatenate(Graphs, axis=0)
 
 
 def get_up_schema(graph_data, table_map):
@@ -689,6 +716,28 @@ def get_seq_batch_data(batch_data,
         return (nodes, q_x, copy_mask, src2trg_map), label
 
 
-# TODO
-def get_single_graph_data():
-    pass
+def get_single_graph_batch_data(
+    batch_data,
+    pad_idx,
+    device,
+    vocab_size,
+    unk_idx,
+):
+    nodes, types, q, graphs, copy_mask, src2trg_map = batch_data
+
+    node_num = get_lens(nodes, pad_idx).item()
+    nodes = nodes[:, :node_num].to(device)
+    types = types[:, :node_num].to(device)
+    graphs = graphs[:, :node_num, :node_num].to(device)
+    q_num = get_lens(q, pad_idx).item()
+    q_x = q[:, :q_num]
+    label = q_x[:, 1:].to(device)
+    q_x[range(q_x.size(0)), get_length(q_x, pad_idx) - 1] = pad_idx
+    q_x = q_x[:, :-1]
+    q_x[q_x >= vocab_size] = unk_idx
+    q_x = q_x.to(device)
+
+    copy_mask = copy_mask[:, :node_num].to(device)
+    src2trg_map = src2trg_map[:, :node_num].to(device)
+
+    return (nodes, types, q_x, graphs, copy_mask, src2trg_map), label

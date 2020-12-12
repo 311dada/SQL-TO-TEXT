@@ -441,6 +441,7 @@ class RelativeTransformer(TransformerBase):
 class GAT(TransformerBase):
     def __init__(self,
                  embed_dim,
+                 type_num,
                  vocab_size,
                  d_model,
                  d_ff,
@@ -464,6 +465,7 @@ class GAT(TransformerBase):
                                   copy=copy)
 
         self.embedding = nn.Embedding(vocab_size, embed_dim)
+        self.type_embedding = nn.Embedding(type_num, embed_dim)
         self.d_k = d_model // head_num
         self.pad_idx = pad_idx
 
@@ -471,11 +473,12 @@ class GAT(TransformerBase):
         self.dec_prj = nn.Linear(d_model, hid_size)
         self.drop = nn.Dropout(dropout)
 
-    def encode(self, nodes, graphs):
+    def encode(self, nodes, types, graphs):
         pad_mask = self.get_mask(nodes)
         mask = bin2inf(graphs).unsqueeze(1)
 
-        nodes = self.drop(self.init_prj(self.embedding(nodes)))
+        nodes = self.drop(
+            self.init_prj(self.embedding(nodes) + self.type_embedding(types)))
         nodes = super(GAT, self).encode(nodes, mask=mask)
         nodes = self.drop(self.dec_prj(nodes))
 
@@ -497,11 +500,12 @@ class GAT(TransformerBase):
 
     def forward(self,
                 nodes,
+                types,
                 graphs,
                 questions,
                 copy_mask=None,
                 src2trg_map=None):
-        nodes, hidden, mask = self.encode(nodes, graphs)
+        nodes, hidden, mask = self.encode(nodes, types, graphs)
         out, _ = self.decode(questions, nodes, hidden, mask, copy_mask,
                              src2trg_map)
 
