@@ -562,8 +562,8 @@ class GCN(nn.Module):
                copy_mask=None,
                src2trg_map=None):
         questions = self.embedding(questions)
-        return self.decoder(questions, hidden, nodes, mask, copy_mask,
-                            src2trg_map)
+        return self.decoder(questions, hidden, nodes, mask,
+                            bin2inf(copy_mask).unsqueeze(1), src2trg_map)
 
     def forward(self,
                 nodes,
