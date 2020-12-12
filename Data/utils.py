@@ -113,10 +113,13 @@ def get_single_graph_data(trees):
 def build_graph(graphs, node_num):
     Graphs = []
 
+    idx = range(node_num)
     for graph in graphs:
         G = np.zeros((node_num, node_num))
         start, end = list(zip(*graph))
         G[start, end] = 1
+        # diag
+        G[idx, idx] = 1
         Graphs.append(np.expand_dims(G, 0))
 
     return np.concatenate(Graphs, axis=0)

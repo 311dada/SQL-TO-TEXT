@@ -525,7 +525,15 @@ class GAT(TransformerBase):
 
 # TODO GCN
 class GCN(nn.Module):
-    pass
+    def __init__(self,
+                 embed_dim,
+                 vocab_size,
+                 hid_size,
+                 pad_idx,
+                 dropout,
+                 max_oov_num=50,
+                 copy=True):
+        super().__init__()
 
 
 # BiLSTM
