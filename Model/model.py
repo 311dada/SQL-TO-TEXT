@@ -11,7 +11,7 @@
 """
 import torch
 import torch.nn as nn
-from Model.encoder import RGTEncoder, RATEncoder
+from Model.encoder import RGTEncoder, RATEncoder, GCNEncoder
 from Model.decoder import LSTMDecoder, SimpleLSTMDecoder
 from Model.utils import max_pooling, get_bin_mask, bin2inf
 from Model.layer import PositionalEncoding
@@ -523,17 +523,70 @@ class GAT(TransformerBase):
         return (h, c)
 
 
-# TODO GCN
 class GCN(nn.Module):
     def __init__(self,
                  embed_dim,
                  vocab_size,
+                 type_num,
                  hid_size,
+                 layer_num,
                  pad_idx,
                  dropout,
                  max_oov_num=50,
                  copy=True):
-        super().__init__()
+        super(GCN, self).__init__()
+
+        self.pad_idx = pad_idx
+        self.embedding = nn.Embedding(vocab_size, embed_dim)
+        self.type_embedding = nn.Embedding(type_num, embed_dim)
+
+        self.encoder = GCNEncoder(hid_size, layer_num, dropout)
+        self.decoder = SimpleLSTMDecoder(embed_dim, hid_size, vocab_size,
+                                         max_oov_num, copy)
+
+        self.drop = nn.Dropout(dropout)
+
+    def encode(self, nodes, types, graphs):
+        pad_mask = self.get_mask(nodes)
+        nodes = self.drop(self.embedding(nodes) + self.type_embedding(types))
+
+        nodes = self.encoder(nodes, graphs)
+        hidden = self.get_init_hidden(nodes, pad_mask)
+        return nodes, hidden, bin2inf(pad_mask).unsqueeze(1)
+
+    def decode(self,
+               questions,
+               nodes,
+               hidden,
+               mask=None,
+               copy_mask=None,
+               src2trg_map=None):
+        questions = self.embedding(questions)
+        return self.decoder(questions, hidden, nodes, mask, copy_mask,
+                            src2trg_map)
+
+    def forward(self,
+                nodes,
+                types,
+                graphs,
+                questions,
+                copy_mask=None,
+                src2trg_map=None):
+        nodes, hidden, mask = self.encode(nodes, types, graphs)
+        out, _ = self.decode(questions, nodes, hidden, mask, copy_mask,
+                             src2trg_map)
+        return out
+
+    def get_mask(self, x):
+        mask = get_bin_mask(x, self.pad_idx)
+        return mask
+
+    @staticmethod
+    def get_init_hidden(nodes, mask):
+        h = max_pooling(nodes, mask.unsqueeze(-1))
+        h = h.transpose(0, 1)
+        c = torch.zeros_like(h)
+        return (h, c)
 
 
 # BiLSTM

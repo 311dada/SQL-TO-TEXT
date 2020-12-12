@@ -7,7 +7,7 @@
         * TreeLSTM
 """
 import torch.nn as nn
-from Model.layer import RATLayer
+from Model.layer import RATLayer, GCNLayer
 from Model.attention import BahdanauAttention
 import torch
 from Model.utils import bin2inf
@@ -316,3 +316,19 @@ class RATEncoder(nn.Module):
         for i in range(self.layer_num):
             nodes = self.layers[i](nodes, r_k, r_v, mask)
         return nodes
+
+
+# GCN Encoder
+class GCNEncoder(nn.Module):
+    def __init__(self, hid_size, layer_num, dropout) -> None:
+        super(GCNEncoder, self).__init__()
+
+        self.layer_num = layer_num
+        self.layers = nn.ModuleList(
+            [GCNLayer(hid_size, dropout) for _ in range(self.layer_num)])
+
+    def forward(self, x, graph):
+        for i in range(self.layer_num):
+            x = self.layers[i](x, graph)
+
+        return x

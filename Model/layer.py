@@ -115,3 +115,24 @@ class RATLayer(nn.Module):
         context = self.RAT(input_norm, input_norm, input_norm, r_k, r_v, mask)
         out = self.drop(context) + x
         return self.feed_forward(out)
+
+
+# GCN Layer
+class GCNLayer(nn.Module):
+    def __init__(self, hid_size, dropout) -> None:
+        super(GCNLayer, self).__init__()
+
+        self.agg = nn.Linear(hid_size, hid_size)
+        self.drop = nn.Dropout(dropout)
+
+    def forward(self, x, graph):
+        """
+        x: [bsz, node_num, hid_size]
+        graph: [bsz, node_num, node_num]
+        """
+        graph = graph.type(torch.float)
+        N_u = torch.sum(graph, dim=-1, keepdim=True)  # [bsz, node_num, 1]
+        N_u_v = torch.sqrt(N_u *
+                           N_u.transpose(1, 2))  # [bsz, node_num, node_num]
+
+        return torch.relu(self.drop((graph / N_u_v).bmm(x)))

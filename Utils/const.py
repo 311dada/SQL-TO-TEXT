@@ -176,3 +176,5 @@ BILSTM_MODEL_PATH = "Checkpoints/BiLSTM"
 SINGLE_GRAPH_VOCAB_PATH = "Cache/vocab/SingleGraph"
 
 GAT_MODEL_PATH = "Checkpoints/GAT"
+
+GCN_MODEL_PATH = "Checkpoints/GCN"

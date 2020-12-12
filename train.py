@@ -3,8 +3,8 @@ from Utils.fix_seed import fix_seed
 import torch
 import logging
 from Data.dataset import RGTDataset, SeqDataset, SingleGraphDataset
-from Model.model import RGT, RelativeTransformer, AbsoluteTransformer, BiLSTM, GAT
-from Utils.const import UP_SCHEMA_NUM, UP_TYPE_NUM, DOWN_TYPE_NUM, TYPE_NUM, RGT_VOCAB_PATH, RGT_MODEL_PATH, SEQ_VOCAB_PATH, RELATIVE_MODEL_PATH, TRANSFORMER_MODEL_PATH, BILSTM_MODEL_PATH, SINGLE_GRAPH_VOCAB_PATH, GAT_MODEL_PATH
+from Model.model import RGT, RelativeTransformer, AbsoluteTransformer, BiLSTM, GAT, GCN
+from Utils.const import UP_SCHEMA_NUM, UP_TYPE_NUM, DOWN_TYPE_NUM, TYPE_NUM, RGT_VOCAB_PATH, RGT_MODEL_PATH, SEQ_VOCAB_PATH, RELATIVE_MODEL_PATH, TRANSFORMER_MODEL_PATH, BILSTM_MODEL_PATH, SINGLE_GRAPH_VOCAB_PATH, GAT_MODEL_PATH, GCN_MODEL_PATH
 import os
 from torch.utils.data import DataLoader
 from Data.utils import get_RGT_batch_data, get_seq_batch_data, get_single_graph_batch_data
@@ -73,7 +73,7 @@ def train(model, batch, label, optimizer, Loss, vocab_size, unk_idx, MODEL):
             out = model(nodes, rela_dist, questions, copy_mask, src2trg_map)
         elif MODEL in ["Transformer", "BiLSTM"]:
             out = model(nodes, questions, copy_mask, src2trg_map)
-    elif MODEL == "GAT":
+    elif MODEL in ["GAT", "GCN"]:
         nodes, types, questions, graphs, copy_mask, src2trg_map = batch
         out = model(nodes, types, graphs, questions, copy_mask, src2trg_map)
     else:
@@ -134,7 +134,9 @@ def eval(model,
                 next_input[next_input >= down_vocab.size] = down_vocab.unk_idx
                 inputs = next_input
 
-        elif MODEL in ["Relative-Transformer", "Transformer", "BiLSTM", "GAT"]:
+        elif MODEL in [
+                "Relative-Transformer", "Transformer", "BiLSTM", "GAT", "GCN"
+        ]:
             if MODEL in ["Relative-Transformer", "Transformer", "BiLSTM"]:
                 batch, label = get_seq_batch_data(batch_data,
                                                   down_vocab.pad_idx, device,
@@ -150,7 +152,7 @@ def eval(model,
                 else:
                     # TODO
                     pass
-            elif MODEL == "GAT":
+            elif MODEL in ["GAT", "GCN"]:
                 batch, label = get_single_graph_batch_data(
                     batch_data, down_vocab.pad_idx, device, down_vocab.size,
                     down_vocab.unk_idx)
@@ -251,7 +253,7 @@ def run(args):
             os.makedirs(SEQ_VOCAB_PATH)
         vocab.save(os.path.join(SEQ_VOCAB_PATH, "seq.vocab"))
 
-    elif args.model == "GAT":
+    elif args.model in ["GAT", "GCN"]:
         train_set = SingleGraphDataset(train_data_files,
                                        table_file,
                                        data=DATA,
@@ -313,6 +315,11 @@ def run(args):
                     args.down_d_model, args.down_d_ff, args.down_head_num,
                     args.down_layer_num, args.hid_size, vocab.pad_idx,
                     args.dropout, args.max_oov_num, args.copy)
+
+    elif args.model == "GCN":
+        model = GCN(args.down_embed_dim, vocab.size, TYPE_NUM, args.hid_size,
+                    args.down_layer_num, vocab.pad_idx, args.dropout,
+                    args.max_oov_num, args.copy)
     else:
         # TODO
         pass
@@ -331,7 +338,7 @@ def run(args):
     if args.model == "RGT":
         Loss = torch.nn.NLLLoss(ignore_index=down_vocab.pad_idx)
     elif args.model in [
-            "Relative-Transformer", "Transformer", "BiLSTM", "GAT"
+            "Relative-Transformer", "Transformer", "BiLSTM", "GAT", "GCN"
     ]:
         Loss = torch.nn.NLLLoss(ignore_index=vocab.pad_idx)
     else:
@@ -359,6 +366,8 @@ def run(args):
         MODEL = BILSTM_MODEL_PATH
     elif args.model == "GAT":
         MODEL = GAT_MODEL_PATH
+    elif args.model == "GCN":
+        MODEL = GCN_MODEL_PATH
     else:
         # TODO
         pass
@@ -387,7 +396,7 @@ def run(args):
                                                   device, vocab.size,
                                                   vocab.unk_idx,
                                                   args.down_max_dist)
-            elif args.model == "GAT":
+            elif args.model in ["GAT", "GCN"]:
                 batch, label = get_single_graph_batch_data(
                     batch_data, vocab.pad_idx, device, vocab.size,
                     vocab.unk_idx)
@@ -401,7 +410,8 @@ def run(args):
                                    down_vocab.size, down_vocab.unk_idx,
                                    args.model)
             elif args.model in [
-                    "Relative-Transformer", "Transformer", "BiLSTM", "GAT"
+                    "Relative-Transformer", "Transformer", "BiLSTM", "GAT",
+                    "GCN"
             ]:
                 train_loss = train(model, batch, label, optimizer, Loss,
                                    vocab.size, vocab.unk_idx, args.model)
@@ -435,7 +445,8 @@ def run(args):
                         f"epoch {epoch}, batch {batch_step}: [dev bleu-> {round(dev_bleu, 4)}]"
                     )
                 elif args.model in [
-                        "Relative-Transformer", "Transformer", "BiLSTM", "GAT"
+                        "Relative-Transformer", "Transformer", "BiLSTM", "GAT",
+                        "GCN"
                 ]:
                     train_bleu = eval(model, train_set, None, vocab, args,
                                       device, args.model)
