@@ -144,3 +144,8 @@ class SingleGraphDataset(Dataset):
         return self.nodes[index], self.types[index], self.questions[
             index], self.graphs[index], self.copy_masks[
                 index], self.src2trg_map[index]
+
+
+# TODO
+class TreeDataset(Dataset):
+    pass

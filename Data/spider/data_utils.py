@@ -772,3 +772,8 @@ def load_spider_single_graph_data(data_files,
     logging.info("Data has been loaded successfully.")
 
     return nodes, types, questions, graphs, copy_masks, origin_ques, vocab, val_map_list, src2trg_map_list, idx2tok_map_list
+
+
+# TODO
+def load_spider_tree_data(data_files, table_file, vocab=None, min_freq=1):
+    pass
