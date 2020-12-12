@@ -43,7 +43,6 @@ class PositionalEncoding(nn.Module):
                 the encoding for this position.
         """
         self.pe = self.pe.to(emb.device)
-        emb = emb * math.sqrt(self.dim)
         if step is None:
             if self.pe.size(0) < emb.size(1):
                 raise ValueError(
