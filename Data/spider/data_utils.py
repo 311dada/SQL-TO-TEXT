@@ -721,3 +721,22 @@ def load_spider_seq2seq_data(data_files: List[str],
 
     logging.info("Data has been loaded successfully.")
     return sqls, questions, copy_masks, origin_ques, vocab, val_map_list, src2trg_map_list, idx2tok_map_list
+
+
+def load_spider_single_graph_data(data_files,
+                                  table_file,
+                                  vocab=None,
+                                  min_freq=1):
+    # load data from original files
+    logging.info("Start loading data from origin files.")
+    samples, val_map_list = get_sqls_and_questions(data_files, table_file)
+
+    logging.info("Start constructing trees.")
+    tables_map = load_dbs(table_file)
+    sqls = list(map(lambda sample: sample["sql"], samples))
+    dbs = list(map(lambda sample: sample["db_id"], samples))
+    trees = get_trees(sqls, dbs, tables_map, table_file)
+
+    # TODO
+
+    return nodes, questions, graphs, copy_masks, origin_ques, vocab, val_map_list, src2rrg_map_list, idx2tok_map_list

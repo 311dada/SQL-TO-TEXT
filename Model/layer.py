@@ -25,17 +25,16 @@ class PositionalEncoding(nn.Module):
             raise ValueError("Cannot use sin/cos positional encoding with "
                              "odd dim (got dim={:d})".format(dim))
         pe = torch.zeros(max_len, dim)
-        for pos in range(max_len):
-            for i in range(0, dim, 2):
-                pe[pos, i] = math.sin(pos / (10000**((2 * i) / dim)))
-                pe[pos, i + 1] = math.cos(pos / (10000**((2 * (i + 1)) / dim)))
-        self.pe = pe.unsqueeze(0)
+        position = torch.arange(0, max_len).unsqueeze(1)
+        div_term = torch.exp((torch.arange(0, dim, 2, dtype=torch.float) *
+                              -(math.log(10000.0) / dim)))
+        pe[:, 0::2] = torch.sin(position.float() * div_term)
+        pe[:, 1::2] = torch.cos(position.float() * div_term)
+        pe = pe.unsqueeze(0)
         super(PositionalEncoding, self).__init__()
+        self.register_buffer('pe', pe)
         self.dropout = nn.Dropout(p=dropout)
         self.dim = dim
-
-        # self.pos_embed = nn.Embedding(max_len, dim)
-        # self.position = torch.arange(0, max_len)
 
     def forward(self, emb, step=None):
         """Embed inputs.
@@ -45,7 +44,6 @@ class PositionalEncoding(nn.Module):
             step (int or NoneType): If stepwise (``seq_len = 1``), use
                 the encoding for this position.
         """
-        emb = emb * math.sqrt(self.dim)
         if step is None:
             if self.pe.size(1) < emb.size(1):
                 raise ValueError(
@@ -54,7 +52,7 @@ class PositionalEncoding(nn.Module):
             emb = emb + Variable(self.pe[:, :emb.size(1)],
                                  requires_grad=False).cuda()
         else:
-            emb = emb + Variable(self.pe[step], requires_grad=False).cuda()
+            emb = emb + Variable(self.pe[:, step], requires_grad=False).cuda()
         emb = self.dropout(emb)
         return emb
 

@@ -8,7 +8,7 @@ FilePath: /Tree2Seq/Data/wikisql/dataset.py
 '''
 from torch.utils.data import Dataset
 from Data.vocab import Vocabulary
-from Data.spider.data_utils import load_spider_data, load_spider_seq2seq_data
+from Data.spider.data_utils import load_spider_data, load_spider_seq2seq_data, load_spider_single_graph_data
 from typing import Tuple, List
 import torch
 
@@ -117,12 +117,28 @@ class SingleGraphDataset(Dataset):
                  vocab=None,
                  min_freq=1):
         super(SingleGraphDataset, self).__init__()
-        # TODO
+        if data == "spider":
+            load_single_graph_data = load_spider_single_graph_data
+        else:
+            # TODO
+            pass
+        nodes, questions, graphs, copy_masks, origin_ques, vocab, val_map_list, src2rrg_map_list, idx2tok_map_list = load_single_graph_data(
+            data_files, table_file, vocab, min_freq)
+
+        self.nodes = torch.tensor(nodes, dtype=torch.long)
+        self.questions = torch.tensor(questions, dtype=torch.long)
+        self.copy_masks = torch.tensor(copy_masks, dtype=torch.long)
+        self.src2trg_map = torch.tensor(src2rrg_map_list, dtype=torch.long)
+        self.graphs = torch.tensor(graphs, dtype=torch.long)
+
+        self.origin_questions = origin_ques
+        self.vocab = vocab
+        self.val_map_list = val_map_list
+        self.idx2tok_map_list = idx2tok_map_list
 
     def __len__(self) -> int:
-        # TODO
-        pass
+        return self.nodes.size(0)
 
     def __getitem__(self, index: int):
-        # TODO
-        pass
+        return self.nodes[index], self.questions[index], self.graphs[
+            index], self.copy_masks[index], self.src2trg_map[index]
