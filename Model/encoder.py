@@ -100,10 +100,12 @@ class RGTEncoder(nn.Module):
             self.lca_prj = nn.Linear(up_d_model, self.down_d_k)
 
         if mode == "concat":
-            self.up_r_prj = nn.Linear(self.up_d_k * len(self.up_rel),
-                                      self.up_d_k)
-            self.down_r_prj = nn.Linear(self.down_d_k * len(self.down_rel),
-                                        self.down_d_k)
+            if len(self.up_rel) > 0:
+                self.up_r_prj = nn.Linear(self.up_d_k * len(self.up_rel),
+                                          self.up_d_k)
+            if len(self.down_rel) > 0:
+                self.down_r_prj = nn.Linear(self.down_d_k * len(self.down_rel),
+                                            self.down_d_k)
             if not self.k_v_share:
                 self.up_r_k_prj = nn.Linear(self.up_d_k, self.up_d_k)
                 self.up_r_v_prj = nn.Linear(self.up_d_k, self.up_d_k)
@@ -487,6 +489,7 @@ class TreeLSTMEncoder(nn.Module):
 
         self.drop = nn.Dropout(dropout)
 
-    def forward(self, nodes, node_order, adjacency_list, edge_order):
+    def forward(self, nodes, types, node_order, adjacency_list, edge_order):
         # TODO
-        pass
+        features = self.drop(
+            self.embedding(nodes) + self.type_embedding(types))
