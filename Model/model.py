@@ -472,6 +472,7 @@ class GAT(TransformerBase):
         self.init_prj = nn.Linear(embed_dim, d_model)
         self.dec_prj = nn.Linear(d_model, hid_size)
         self.drop = nn.Dropout(dropout)
+        self.layer_norm = nn.LayerNorm(hid_size, eps=1e-16)
 
     def encode(self, nodes, types, graphs):
         pad_mask = self.get_mask(nodes)
@@ -481,6 +482,7 @@ class GAT(TransformerBase):
             self.init_prj(self.embedding(nodes) + self.type_embedding(types)))
         nodes = super(GAT, self).encode(nodes, mask=mask)
         nodes = self.drop(self.dec_prj(nodes))
+        nodes = self.layer_norm(nodes)
 
         hidden = self.get_init_hidden(nodes, pad_mask)
 
