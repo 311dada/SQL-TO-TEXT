@@ -103,7 +103,8 @@ def eval(model,
          device,
          MODEL,
          best_bleu=100,
-         max_decode=50):
+         max_decode=50,
+         write=False):
     model.eval()
     dataloader = DataLoader(dataset, args.eval_batch_size)
 
@@ -196,7 +197,7 @@ def eval(model,
                                    down_vocab, True, dataset.val_map_list,
                                    dataset.idx2tok_map_list)
 
-    if bleu > best_bleu:
+    if write or bleu > best_bleu:
         with open(args.output, 'w') as f:
             for idx, pred in enumerate(preds):
                 f.write(f"Pre: {pred}\n\n")
@@ -218,8 +219,9 @@ def run(args):
     model = None
     DATA = None
     train_data_files = []
-    table_file = ''
+    train_table_file = ''
     dev_data_files = []
+    dev_table_file = ''
 
     # build vocabulary and load data
     if args.data == "spider":
@@ -229,38 +231,52 @@ def run(args):
             "./Dataset/spider/train_others.json"
         ]
         # train_data_files = ['./Dataset/spider/test.json']
-        table_file = "./Dataset/spider/tables.json"
+        train_table_file = "./Dataset/spider/tables.json"
+        dev_table_file = train_table_file
         dev_data_files = ["./Dataset/spider/dev.json"]
     elif args.data == "wikisql":
-        # TODO
-        pass
+        DATA = "wikisql"
+        train_data_files = ["./Dataset/wikisql/train.jsonl"]
+        train_table_file = "./Dataset/wikisql/train.tables.jsonl"
+        dev_data_files = ["./Dataset/wikisql/dev.jsonl"]
+        dev_table_file = "./Dataset/wikisql/dev.tables.jsonl"
+        test_data_files = ["./Dataset/wikisql/test.jsonl"]
+        test_table_file = "./Dataset/wikisql/test.tables.jsonl"
     else:
         raise NotImplementedError("Not supported dataset.")
 
     if args.model == "RGT":
         train_set = RGTDataset(train_data_files,
-                               table_file,
+                               train_table_file,
                                data=DATA,
                                min_freq=args.min_freq)
         dev_set = RGTDataset(dev_data_files,
-                             table_file,
+                             dev_table_file,
                              data=DATA,
                              down_vocab=train_set.down_vocab,
                              up_vocab=train_set.up_vocab)
+
+        if DATA == "wikisql":
+            test_set = RGTDataset(test_data_files,
+                                  test_table_file,
+                                  data=DATA,
+                                  down_vocab=train_set.down_vocab,
+                                  up_vocab=train_set.up_vocab)
         up_vocab = train_set.up_vocab
         down_vocab = train_set.down_vocab
 
-        if not os.path.exists(RGT_VOCAB_PATH):
-            os.makedirs(RGT_VOCAB_PATH)
-        up_vocab.save(os.path.join(RGT_VOCAB_PATH, 'up.vocab'))
-        down_vocab.save(os.path.join(RGT_VOCAB_PATH, 'down.vocab'))
+        rgt_vocab_path = os.path.join(RGT_VOCAB_PATH, DATA)
+        if not os.path.exists(rgt_vocab_path):
+            os.makedirs(rgt_vocab_path)
+        up_vocab.save(os.path.join(rgt_vocab_path, "up.vocab"))
+        down_vocab.save(os.path.join(rgt_vocab_path, "down.vocab"))
     elif args.model in ["Relative-Transformer", "Transformer", "BiLSTM"]:
         train_set = SeqDataset(train_data_files,
-                               table_file,
+                               train_table_file,
                                data=DATA,
                                min_freq=args.min_freq)
         dev_set = SeqDataset(dev_data_files,
-                             table_file,
+                             dev_table_file,
                              data=DATA,
                              vocab=train_set.vocab)
         vocab = train_set.vocab
@@ -271,11 +287,11 @@ def run(args):
 
     elif args.model in ["GAT", "GCN"]:
         train_set = SingleGraphDataset(train_data_files,
-                                       table_file,
+                                       train_table_file,
                                        data=DATA,
                                        min_freq=args.min_freq)
         dev_set = SingleGraphDataset(dev_data_files,
-                                     table_file,
+                                     dev_table_file,
                                      data=DATA,
                                      vocab=train_set.vocab)
         vocab = train_set.vocab
@@ -286,11 +302,11 @@ def run(args):
 
     elif args.model == "TreeLSTM":
         train_set = TreeDataset(train_data_files,
-                                table_file,
+                                train_table_file,
                                 data=DATA,
                                 min_freq=args.min_freq)
         dev_set = TreeDataset(dev_data_files,
-                              table_file,
+                              dev_table_file,
                               data=DATA,
                               vocab=train_set.vocab)
         vocab = train_set.vocab
@@ -403,6 +419,7 @@ def run(args):
         MODEL = GCN_MODEL_PATH
     else:
         MODEL = TREE_MODEL_PATH
+    MODEL = os.path.join(MODEL, DATA)
     if not os.path.exists(MODEL):
         os.makedirs(MODEL)
 
@@ -411,6 +428,7 @@ def run(args):
 
     best_bleu = 0
     batch_step = 0
+    test_bleu = 0
 
     for epoch in range(args.epoch):
         for batch_data in train_data_loader:
@@ -505,15 +523,38 @@ def run(args):
                         "model": model.state_dict()
                     }, model_path)
 
+                    if DATA == "wikisql":
+                        if args.model == "RGT":
+                            test_bleu = eval(model,
+                                             test_set,
+                                             up_vocab,
+                                             down_vocab,
+                                             args,
+                                             device,
+                                             args.model,
+                                             write=True)
+                            logging.info(
+                                f"epoch {epoch}, batch {batch_step}: [test bleu-> {round(test_bleu, 4)}]"
+                            )
+
             batch_step += 1
 
         scheduler.step()
 
-    logging.info(f"best bleu: {round(best_bleu, 4)}")
+    logging.info(f"best dev bleu: {round(best_bleu, 4)}")
+    if DATA == "wikisql":
+        logging.info(f"test bleu: {round(test_bleu, 4)}")
 
 
 if __name__ == "__main__":
     args = parse()
+
+    LOG_DIR = os.path.dirname(args.log)
+    if not os.path.exists(LOG_DIR):
+        os.makedirs(LOG_DIR)
+    OUTPUT_DIR = os.path.dirname(args.output)
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR)
     logging.basicConfig(format='%(asctime)s - %(levelname)s: %(message)s',
                         level=logging.DEBUG,
                         filename=args.log,

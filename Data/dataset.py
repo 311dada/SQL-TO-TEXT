@@ -9,6 +9,7 @@ FilePath: /Tree2Seq/Data/wikisql/dataset.py
 from torch.utils.data import Dataset
 from Data.vocab import Vocabulary
 from Data.spider.data_utils import load_spider_data, load_spider_seq2seq_data, load_spider_single_graph_data, load_spider_tree_data
+from Data.wikisql.data_utils import load_wikisql_data
 from typing import Tuple, List
 import torch
 
@@ -31,11 +32,11 @@ class RGTDataset(Dataset):
         """
         super(RGTDataset, self).__init__()
 
+        self.data = data
         if data == "spider":
             load_data = load_spider_data
         else:
-            # TODO
-            pass
+            load_data = load_wikisql_data
 
         down_nodes, up_nodes, up_nodes_types, down_nodes_types, up_depths, up_schemas, down_to_up_relations, questions, copy_masks, src2trg_map_list, origin_ques, down_vocab, up_vocab, val_map_list, idx2tok_map_list, up_to_down_masks, down_to_up_masks = load_data(
             data_files, table_file, down_vocab, up_vocab, min_freq, max_depth)
@@ -47,6 +48,8 @@ class RGTDataset(Dataset):
                                              dtype=torch.long)
         self.up_depths = torch.tensor(up_depths, dtype=torch.long)
         self.up_schemas = torch.tensor(up_schemas, dtype=torch.long)
+        if data == "wikisql":
+            self.up_schemas = torch.zeros_like(self.up_depths)
         self.down_lca = torch.tensor(down_to_up_relations, dtype=torch.long)
         self.questions = torch.tensor(questions, dtype=torch.long)
         self.copy_masks = torch.tensor(copy_masks, dtype=torch.long)
@@ -68,12 +71,13 @@ class RGTDataset(Dataset):
         return self.down_nodes.size(0)
 
     def __getitem__(self, idx: int) -> Tuple:
-        return self.down_nodes[idx], self.up_nodes[idx], self.up_nodes_types[
-            idx], self.down_nodes_types[idx], self.up_depths[
-                idx], self.up_schemas[idx], self.down_lca[idx], self.questions[
-                    idx], self.copy_masks[idx], self.src2trg_mapping[
-                        idx], self.up_to_down_masks[
-                            idx], self.down_to_up_masks[idx]
+        return self.down_nodes[idx], self.up_nodes[
+            idx], self.up_nodes_types[idx], self.down_nodes_types[
+                idx], self.up_depths[idx], self.up_schemas[
+                    idx], self.down_lca[idx], self.questions[
+                        idx], self.copy_masks[idx], self.src2trg_mapping[
+                            idx], self.up_to_down_masks[
+                                idx], self.down_to_up_masks[idx]
 
 
 class SeqDataset(Dataset):

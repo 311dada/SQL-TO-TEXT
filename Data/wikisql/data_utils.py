@@ -8,7 +8,7 @@ FilePath: /Tree2Seq/Data/wikisql/generate_sql.py
 '''
 from typing import List, Dict, Tuple
 import json
-from Data.utils import rm_contents_in_brackets, get_flatten_data, build_vocab, pad, pad_and_transform_cliques, get_clique_graph, get_relations, build_graphs_and_depths, pad_up_to_down_masks
+from Data.utils import build_up_vocab, rm_contents_in_brackets, get_flatten_data, build_vocab, pad, pad_and_transform_cliques, get_clique_graph, get_relations, build_graphs_and_depths, pad_up_to_down_masks
 from Utils.tree import TreeNode
 from Utils.const import WIKISQL_AGG_OPS, WIKISQL_COND_OPS
 import numpy as np
@@ -372,10 +372,11 @@ def get_trees(sqls: List[Dict]) -> List[TreeNode]:
     return trees
 
 
-def load_data(
-    data_file: str,
+def load_wikisql_data(
+    data_files: List[str],
     table_file: str,
-    vocab: Vocabulary = None,
+    down_vocab: Vocabulary = None,
+    up_vocab=None,
     min_freq: int = 1,
     max_depth: int = 4
 ) -> Tuple[List[List], List[List], np.ndarray, np.ndarray, List[List],
@@ -394,7 +395,7 @@ def load_data(
     """
     # load data from original files
     logging.info("Start loading data from origin files.")
-    samples, val_map_list = get_sqls_and_questions(data_file, table_file)
+    samples, val_map_list = get_sqls_and_questions(data_files[0], table_file)
 
     logging.info("Start constructing trees.")
     # construct trees
@@ -407,22 +408,22 @@ def load_data(
     origin_ques = list(map(lambda sample: sample["origin_ques"], samples))
     proc_ques = list(map(lambda sample: sample["proc_ques"], samples))
 
-    if vocab is None:
+    if down_vocab is None:
         logging.info("Start building vocabulary.")
         # build vocabulary
-        vocab = build_vocab(down_nodes,
-                            proc_ques,
-                            min_freq=min_freq,
-                            fake_sqls=up_nodes)
+        down_vocab = build_vocab(down_nodes, proc_ques, min_freq=min_freq)
+        up_vocab = build_up_vocab(up_nodes, min_freq)
 
     logging.info("Start post processing, such as padding.")
     # pad sqls, questions, copy_masks and transform them to idx representation
-    down_nodes, src2trg_map_list, idx2tok_map_list = vocab.to_ids_2_dim(
+    down_nodes, src2trg_map_list, idx2tok_map_list, tok2idx_map_list = down_vocab.to_ids_2_dim(
         down_nodes, unk=True)
-    up_nodes = vocab.to_ids_2_dim(up_nodes)
+    up_nodes = up_vocab.to_ids_2_dim(up_nodes)
     up_graphs, up_depths = build_graphs_and_depths(up_graphs, up_depths,
                                                    len(up_nodes[0]), max_depth)
-    questions = vocab.to_ids_2_dim(proc_ques, add_end=True)
+    questions = down_vocab.to_ids_2_dim(proc_ques,
+                                        add_end=True,
+                                        TOK2IDX_MAP_LIST=tok2idx_map_list)
     down_nodes_num = len(down_nodes[0])
     up_nodes_num = len(up_nodes[0])
     copy_masks = pad(copy_masks, max_len=down_nodes_num, pad_val=0)
@@ -438,7 +439,7 @@ def load_data(
     # relations = np.array(relations)
     # relations = np.expand_dims(relations[:, :, :, 0], axis=-1)
     logging.info("Data has been loaded successfully.")
-    return down_nodes, up_nodes, up_nodes_types, down_nodes_types, up_graphs, up_depths, down_to_up_relations, questions, copy_masks, src2trg_map_list, mixed_head_masks, origin_ques, vocab, val_map_list, idx2tok_map_list, up_to_down_masks, down_to_up_masks
+    return down_nodes, up_nodes, up_nodes_types, down_nodes_types, up_depths, up_schemas, down_to_up_relations, questions, copy_masks, src2trg_map_list, origin_ques, down_vocab, up_vocab, val_map_list, idx2tok_map_list, up_to_down_masks, down_to_up_masks
 
 
 def get_sequences(
@@ -504,10 +505,11 @@ def get_sequences(
     return sql_seq, cliques, copy_masks
 
 
-def load_seq2seq_data(data_file: str,
-                      table_file,
-                      vocab: Vocabulary = None,
-                      min_freq: int = 1):
+# TODO
+def load_wikisql_seq2seq_data(data_file: str,
+                              table_file,
+                              vocab: Vocabulary = None,
+                              min_freq: int = 1):
     # load data from original files
     logging.info("Start loading data from origin files.")
     samples, val_map_list = get_sqls_and_questions(data_file, table_file)
@@ -534,3 +536,13 @@ def load_seq2seq_data(data_file: str,
 
     logging.info("Data has been loaded successfully.")
     return sqls, questions, cliques, copy_masks, origin_ques, vocab, val_map_list, clique_graphs, src2trg_map_list, idx2tok_map_list
+
+
+# TODO
+def load_wikisql_single_graph_data():
+    pass
+
+
+# TODO
+def load_wikisql_tree_data():
+    pass

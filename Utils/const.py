@@ -3,8 +3,8 @@
 # NOT_VALID_TOKS = ["root", "column", "cond"]
 
 # # ------------------- WIKISQL ------------------- #
-# WIKISQL_AGG_OPS = ['', 'max', 'min', 'count', 'sum', 'avg']
-# WIKISQL_COND_OPS = ['=', '>', '<', 'op']
+WIKISQL_AGG_OPS = ['', 'max', 'min', 'count', 'sum', 'avg']
+WIKISQL_COND_OPS = ['=', '>', '<', 'op']
 # WIKISQL_NODE_TYPES = {
 #     "root": 0,
 #     "select": 1,
