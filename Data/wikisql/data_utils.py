@@ -8,7 +8,7 @@ FilePath: /Tree2Seq/Data/wikisql/generate_sql.py
 '''
 from typing import List, Dict, Tuple
 import json
-from Data.utils import build_up_vocab, rm_contents_in_brackets, get_flatten_data, build_vocab, pad, pad_and_transform_cliques, get_clique_graph, get_relations, build_graphs_and_depths, pad_up_to_down_masks
+from Data.utils import build_up_vocab, rm_contents_in_brackets, get_flatten_data, build_vocab, pad, get_relations, build_graphs_and_depths, pad_up_to_down_masks, get_single_graph_data, build_graph
 from Utils.tree import TreeNode
 from Utils.const import WIKISQL_AGG_OPS, WIKISQL_COND_OPS
 import numpy as np
@@ -537,9 +537,52 @@ def load_wikisql_seq2seq_data(data_files: List[str],
     return sqls, questions, copy_masks, origin_ques, vocab, val_map_list, src2trg_map_list, idx2tok_map_list
 
 
-# TODO
-def load_wikisql_single_graph_data():
-    pass
+def load_wikisql_single_graph_data(data_files: List[str],
+                                   table_file,
+                                   vocab: Vocabulary = None,
+                                   min_freq: int = 1):
+    # load data from original files
+    logging.info("Start loading data from origin files.")
+    samples, val_map_list = get_sqls_and_questions(data_files[0], table_file)
+
+    logging.info("Start constructing trees.")
+    # construct trees
+    trees = get_trees(list(map(lambda sample: sample["sql"], samples)))
+
+    logging.info("Start getting flatten data.")
+    nodes, types, graphs, copy_masks = get_single_graph_data(trees)
+
+    origin_ques = list(map(lambda sample: sample["origin_ques"], samples))
+    proc_ques = list(map(lambda sample: sample["proc_ques"], samples))
+
+    if vocab is None:
+        logging.info("Start building vocabulary.")
+        # build vocabulary
+        vocab = build_vocab(nodes, proc_ques, min_freq=min_freq)
+
+    logging.info("Start post processing, such as padding.")
+    # pad sqls, questions, copy_masks and transform them to idx representation
+    nodes, src2trg_map_list, idx2tok_map_list, tok2idx_map_list = vocab.to_ids_2_dim(
+        nodes, unk=True)
+    logging.info("nodes has been padded.")
+    questions = vocab.to_ids_2_dim(proc_ques,
+                                   add_end=True,
+                                   TOK2IDX_MAP_LIST=tok2idx_map_list)
+    logging.info("question has been padded.")
+    node_num = len(nodes[0])
+    logging.info(f"maximum node number: {node_num}")
+    copy_masks = pad(copy_masks, max_len=node_num, pad_val=0)
+    logging.info("copy mask has been padded.")
+
+    types = pad(types, max_len=node_num, pad_val=0)
+    logging.info("type has been padded.")
+
+    graphs = build_graph(graphs, node_num)
+    logging.info("graph has been padded.")
+
+    logging.info("Data has been loaded successfully.")
+
+    return nodes, types, questions, graphs, copy_masks, origin_ques, vocab, val_map_list, src2trg_map_list, idx2tok_map_list
 
 
 # TODO

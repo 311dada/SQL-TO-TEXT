@@ -300,11 +300,18 @@ def run(args):
                                      dev_table_file,
                                      data=DATA,
                                      vocab=train_set.vocab)
+
+        if DATA == "wikisql":
+            test_set = SingleGraphDataset(test_data_files,
+                                          test_table_file,
+                                          data=DATA,
+                                          vocab=train_set.vocab)
         vocab = train_set.vocab
 
-        if not os.path.exists(SINGLE_GRAPH_VOCAB_PATH):
-            os.makedirs(SINGLE_GRAPH_VOCAB_PATH)
-        vocab.save(os.path.join(SINGLE_GRAPH_VOCAB_PATH, "SingleGraph.vocab"))
+        single_graph_vocab_path = os.path.join(SINGLE_GRAPH_VOCAB_PATH, DATA)
+        if not os.path.exists(single_graph_vocab_path):
+            os.makedirs(single_graph_vocab_path)
+        vocab.save(os.path.join(single_graph_vocab_path, "SingleGraph.vocab"))
 
     elif args.model == "TreeLSTM":
         train_set = TreeDataset(train_data_files,
