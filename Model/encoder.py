@@ -416,6 +416,8 @@ class TreeLSTMEncoder(torch.nn.Module):
 
         # x is a tensor of size n x F
         x = features[node_mask, :]
+        h = h.clone()
+        c = c.clone()
 
         # At iteration 0 none of the nodes should have children
         # Otherwise, select the child nodes needed for current iteration
