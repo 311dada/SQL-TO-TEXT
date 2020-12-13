@@ -388,8 +388,8 @@ class TreeLSTMEncoder(torch.nn.Module):
 
         # populate the h and c states respecting computation order
         for n in range(node_order.max() + 1):
-            root = self._run_lstm(n, h, c, features, node_order,
-                                  adjacency_list, edge_order)
+            root, h, c = self._run_lstm(n, h, c, features, node_order,
+                                        adjacency_list, edge_order)
 
         return h, c, root.squeeze()
 
@@ -475,5 +475,4 @@ class TreeLSTMEncoder(torch.nn.Module):
 
         h[node_mask, :] = o * torch.tanh(c[node_mask])
 
-        return h[node_mask, :]
-
+        return h[node_mask, :].clone(), h.clone(), c.clone()
