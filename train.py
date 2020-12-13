@@ -108,7 +108,6 @@ def eval(model,
     dataloader = DataLoader(dataset, args.eval_batch_size)
 
     total_preds = []
-    cnt = 0
 
     for batch_data in dataloader:
         preds = []
@@ -173,8 +172,6 @@ def eval(model,
                 inputs = next_input
 
         else:
-            print(cnt)
-            cnt += 1
             batch, label = get_tree_batch_data(batch_data, device)
 
             nodes, types, node_order, adjacency_list, edge_order, questions, copy_mask, src2trg_map = batch

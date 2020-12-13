@@ -388,7 +388,7 @@ class TreeLSTMEncoder(torch.nn.Module):
 
         # populate the h and c states respecting computation order
         for n in range(node_order.max() + 1):
-            root = self._run_lstm(n, h, c, features, node_order,
+            root, h, c = self._run_lstm(n, h, c, features, node_order,
                                         adjacency_list, edge_order)
 
         return h, c, root.squeeze()
@@ -433,8 +433,6 @@ class TreeLSTMEncoder(torch.nn.Module):
             child_indexes = adjacency_list[:, 1]
 
             # child_h and child_c are tensors of size e x 1
-            # child_h = h[child_indexes, :]
-            # child_c = c[child_indexes, :]
             child_h = torch.index_select(h, 0, child_indexes)
             child_c = torch.index_select(c, 0, child_indexes)
 
@@ -455,11 +453,14 @@ class TreeLSTMEncoder(torch.nn.Module):
         o = torch.sigmoid(o)
         u = torch.tanh(u)
 
+        H = h.clone()
+        C = c.clone()
+
         # At iteration 0 none of the nodes should have children
         # Otherwise, calculate the forget states for each parent node and child node
         # and sum over the child memory cell states
         if iteration == 0:
-            c[node_mask, :] = i * u
+            C[node_mask, :] = i * u
         else:
             # f is a tensor of size e x M
             f = self.W_f(features[parent_indexes, :]) + self.U_f(child_h)
@@ -473,8 +474,8 @@ class TreeLSTMEncoder(torch.nn.Module):
             parent_list = [item.sum(0) for item in parent_children]
 
             c_sum = torch.stack(parent_list)
-            c[node_mask, :] = i * u + c_sum
+            C[node_mask, :] = i * u + c_sum
 
-        h[node_mask, :] = o * torch.tanh(c[node_mask])
+        H[node_mask, :] = o * torch.tanh(C[node_mask])
 
-        return h[node_mask, :]
+        return H[node_mask, :], H, C
