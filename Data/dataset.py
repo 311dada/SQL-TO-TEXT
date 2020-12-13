@@ -9,7 +9,7 @@ FilePath: /Tree2Seq/Data/wikisql/dataset.py
 from torch.utils.data import Dataset
 from Data.vocab import Vocabulary
 from Data.spider.data_utils import load_spider_data, load_spider_seq2seq_data, load_spider_single_graph_data, load_spider_tree_data
-from Data.wikisql.data_utils import load_wikisql_data
+from Data.wikisql.data_utils import load_wikisql_data, load_wikisql_seq2seq_data
 from typing import Tuple, List
 import torch
 
@@ -91,8 +91,7 @@ class SeqDataset(Dataset):
         if data == "spider":
             load_seq2seq_data = load_spider_seq2seq_data
         else:
-            # TODO
-            pass
+            load_seq2seq_data = load_wikisql_seq2seq_data
         sqls, questions, copy_masks, origin_ques, vocab, val_map_list, src2trg_map_list, idx2tok_map_list = load_seq2seq_data(
             data_files, table_file, vocab, min_freq)
 

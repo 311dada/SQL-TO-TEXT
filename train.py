@@ -279,11 +279,17 @@ def run(args):
                              dev_table_file,
                              data=DATA,
                              vocab=train_set.vocab)
+        if DATA == "wikisql":
+            test_set = SeqDataset(test_data_files,
+                                  test_table_file,
+                                  data=DATA,
+                                  vocab=train_set.vocab)
         vocab = train_set.vocab
 
-        if not os.path.exists(SEQ_VOCAB_PATH):
-            os.makedirs(SEQ_VOCAB_PATH)
-        vocab.save(os.path.join(SEQ_VOCAB_PATH, "seq.vocab"))
+        seq_vocab_path = os.path.join(SEQ_VOCAB_PATH, DATA)
+        if not os.path.exists(seq_vocab_path):
+            os.makedirs(seq_vocab_path)
+        vocab.save(os.path.join(seq_vocab_path, "seq.vocab"))
 
     elif args.model in ["GAT", "GCN"]:
         train_set = SingleGraphDataset(train_data_files,
@@ -533,10 +539,19 @@ def run(args):
                                              device,
                                              args.model,
                                              write=True)
-                            logging.info(
-                                f"epoch {epoch}, batch {batch_step}: [test bleu-> {round(test_bleu, 4)}]"
-                            )
 
+                        else:
+                            test_bleu = eval(model,
+                                             test_set,
+                                             None,
+                                             vocab,
+                                             args,
+                                             device,
+                                             args.model,
+                                             write=True)
+                        logging.info(
+                            f"epoch {epoch}, batch {batch_step}: [test bleu-> {round(test_bleu, 4)}]"
+                        )
             batch_step += 1
 
         scheduler.step()

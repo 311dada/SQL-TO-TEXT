@@ -505,14 +505,13 @@ def get_sequences(
     return sql_seq, cliques, copy_masks
 
 
-# TODO
-def load_wikisql_seq2seq_data(data_file: str,
+def load_wikisql_seq2seq_data(data_files: List[str],
                               table_file,
                               vocab: Vocabulary = None,
                               min_freq: int = 1):
     # load data from original files
     logging.info("Start loading data from origin files.")
-    samples, val_map_list = get_sqls_and_questions(data_file, table_file)
+    samples, val_map_list = get_sqls_and_questions(data_files[0], table_file)
     logging.info("Start constructing sequences.")
     sqls, cliques, copy_masks = get_sequences(
         list(map(lambda sample: sample["sql"], samples)))
@@ -526,16 +525,16 @@ def load_wikisql_seq2seq_data(data_file: str,
 
     logging.info("Start post processing, such as padding.")
     # pad sqls, questions, copy_masks and transform them to idx representation
-    sqls, src2trg_map_list, idx2tok_map_list = vocab.to_ids_2_dim(sqls,
-                                                                  unk=True)
-    questions = vocab.to_ids_2_dim(proc_ques, add_end=True)
+    sqls, src2trg_map_list, idx2tok_map_list, tok2idx_map_list = vocab.to_ids_2_dim(
+        sqls, unk=True)
+    questions = vocab.to_ids_2_dim(proc_ques,
+                                   add_end=True,
+                                   TOK2IDX_MAP_LIST=tok2idx_map_list)
     node_num = len(sqls[0])
     copy_masks = pad(copy_masks, max_len=node_num, pad_val=0)
-    cliques = pad_and_transform_cliques(cliques, node_num)
-    clique_graphs = get_clique_graph(cliques)
 
     logging.info("Data has been loaded successfully.")
-    return sqls, questions, cliques, copy_masks, origin_ques, vocab, val_map_list, clique_graphs, src2trg_map_list, idx2tok_map_list
+    return sqls, questions, copy_masks, origin_ques, vocab, val_map_list, src2trg_map_list, idx2tok_map_list
 
 
 # TODO
