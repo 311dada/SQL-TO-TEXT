@@ -388,7 +388,7 @@ class TreeLSTMEncoder(torch.nn.Module):
 
         # populate the h and c states respecting computation order
         for n in range(node_order.max() + 1):
-            root, h, c = self._run_lstm(n, h, c, features, node_order,
+            root = self._run_lstm(n, h, c, features, node_order,
                                         adjacency_list, edge_order)
 
         return h, c, root.squeeze()
@@ -416,8 +416,6 @@ class TreeLSTMEncoder(torch.nn.Module):
 
         # x is a tensor of size n x F
         x = features[node_mask, :]
-        h = h.clone()
-        c = c.clone()
 
         # At iteration 0 none of the nodes should have children
         # Otherwise, select the child nodes needed for current iteration
@@ -435,8 +433,10 @@ class TreeLSTMEncoder(torch.nn.Module):
             child_indexes = adjacency_list[:, 1]
 
             # child_h and child_c are tensors of size e x 1
-            child_h = h[child_indexes, :]
-            child_c = c[child_indexes, :]
+            # child_h = h[child_indexes, :]
+            # child_c = c[child_indexes, :]
+            child_h = torch.index_select(h, 0, child_indexes)
+            child_c = torch.index_select(c, 0, child_indexes)
 
             # Add child hidden states to parent offset locations
             _, child_counts = torch.unique_consecutive(parent_indexes,
@@ -477,4 +477,4 @@ class TreeLSTMEncoder(torch.nn.Module):
 
         h[node_mask, :] = o * torch.tanh(c[node_mask])
 
-        return h[node_mask, :].clone(), h.clone(), c.clone()
+        return h[node_mask, :]
