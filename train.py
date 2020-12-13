@@ -322,11 +322,18 @@ def run(args):
                               dev_table_file,
                               data=DATA,
                               vocab=train_set.vocab)
+
+        if DATA == "wikisql":
+            test_set = TreeDataset(test_data_files,
+                                   test_table_file,
+                                   data=DATA,
+                                   vocab=train_set.vocab)
         vocab = train_set.vocab
 
-        if not os.path.exists(TREE_VOCAB_PATH):
-            os.makedirs(TREE_VOCAB_PATH)
-        vocab.save(os.path.join(TREE_VOCAB_PATH, "tree.vocab"))
+        tree_vocab_path = os.path.join(TREE_VOCAB_PATH, DATA)
+        if not os.path.exists(tree_vocab_path):
+            os.makedirs(tree_vocab_path)
+        vocab.save(os.path.join(tree_vocab_path, "tree.vocab"))
 
     else:
         raise ValueError("Not supported model.")

@@ -8,7 +8,7 @@ FilePath: /Tree2Seq/Data/wikisql/generate_sql.py
 '''
 from typing import List, Dict, Tuple
 import json
-from Data.utils import build_up_vocab, rm_contents_in_brackets, get_flatten_data, build_vocab, pad, get_relations, build_graphs_and_depths, pad_up_to_down_masks, get_single_graph_data, build_graph
+from Data.utils import build_up_vocab, rm_contents_in_brackets, get_flatten_data, build_vocab, pad, get_relations, build_graphs_and_depths, pad_up_to_down_masks, get_single_graph_data, build_graph, calculate_evaluation_orders, get_tree_data
 from Utils.tree import TreeNode
 from Utils.const import WIKISQL_AGG_OPS, WIKISQL_COND_OPS
 import numpy as np
@@ -585,6 +585,41 @@ def load_wikisql_single_graph_data(data_files: List[str],
     return nodes, types, questions, graphs, copy_masks, origin_ques, vocab, val_map_list, src2trg_map_list, idx2tok_map_list
 
 
-# TODO
-def load_wikisql_tree_data():
-    pass
+def load_wikisql_tree_data(data_files, table_file, vocab=None, min_freq=1):
+    # load data from original files
+    logging.info("Start loading data from origin files.")
+    samples, val_map_list = get_sqls_and_questions(data_files[0], table_file)
+
+    logging.info("Start constructing trees.")
+    # construct trees
+    trees = get_trees(list(map(lambda sample: sample["sql"], samples)))
+
+    logging.info("Start getting flatten data.")
+    nodes, types, adjacency_list, copy_mask = get_tree_data(trees)
+    node_order, edge_order = [], []
+
+    for idx, adjacency in enumerate(adjacency_list):
+        node_order_, edge_order_ = calculate_evaluation_orders(
+            adjacency, len(nodes[idx]))
+        node_order.append(node_order_)
+        edge_order.append(edge_order_)
+
+    origin_ques = list(map(lambda sample: sample["origin_ques"], samples))
+    proc_ques = list(map(lambda sample: sample["proc_ques"], samples))
+
+    if vocab is None:
+        logging.info("Start building vocabulary.")
+        # build vocabulary
+        vocab = build_vocab(nodes, proc_ques, min_freq=min_freq)
+
+    logging.info("Start post processing, such as padding.")
+    nodes, src2trg_map_list, idx2tok_map_list, tok2idx_map_list = vocab.to_ids_2_dim(
+        nodes, unk=True, pad=False)
+    logging.info("nodes has been post processed.")
+    questions = vocab.to_ids_2_dim(proc_ques,
+                                   add_end=True,
+                                   pad=False,
+                                   TOK2IDX_MAP_LIST=tok2idx_map_list)
+    logging.info("question has been padded.")
+
+    return nodes, types, node_order, adjacency_list, edge_order, questions, origin_ques, vocab, val_map_list, copy_mask, src2trg_map_list, idx2tok_map_list
