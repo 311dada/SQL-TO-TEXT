@@ -164,7 +164,7 @@ def flatten(root: TreeNode, k: int = 4) -> List[TreeNode]:
     return seq_data, graph_data, graph, depth, head_mask, up_to_down_mask, down_to_up_mask
 
 
-def linearize(root: TreeNode, idx: int):
+def linearize(root: TreeNode, idx: int, tree=False):
     root.set_idx(idx)
 
     nodes = [root]
@@ -173,13 +173,14 @@ def linearize(root: TreeNode, idx: int):
     start = idx + 1
     cur_num = 1
     for child in root.children:
-        nodes_, graph_, num = linearize(child, start)
+        nodes_, graph_, num = linearize(child, start, tree)
         nodes += nodes_
         start += num
         cur_num += num
         graph += graph_
         graph.append([idx, child.idx])
-        graph.append([child.idx, idx])
+        if not tree:
+            graph.append([child.idx, idx])
     return nodes, graph, cur_num
 
 

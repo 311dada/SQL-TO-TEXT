@@ -178,3 +178,7 @@ SINGLE_GRAPH_VOCAB_PATH = "Cache/vocab/SingleGraph"
 GAT_MODEL_PATH = "Checkpoints/GAT"
 
 GCN_MODEL_PATH = "Checkpoints/GCN"
+
+TREE_VOCAB_PATH = "Cache/vocab/Tree"
+
+TREE_MODEL_PATH = "Checkpoints/TreeLSTM"

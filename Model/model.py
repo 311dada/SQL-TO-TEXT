@@ -11,7 +11,7 @@
 """
 import torch
 import torch.nn as nn
-from Model.encoder import RGTEncoder, RATEncoder, GCNEncoder
+from Model.encoder import RGTEncoder, RATEncoder, GCNEncoder, TreeLSTMEncoder
 from Model.decoder import LSTMDecoder, SimpleLSTMDecoder
 from Model.utils import max_pooling, get_bin_mask, bin2inf
 from Model.layer import PositionalEncoding
@@ -662,6 +662,75 @@ class BiLSTM(nn.Module):
         return mask
 
 
-# TODO TreeLSTM
+# TreeLSTM
 class TreeLSTM(nn.Module):
-    pass
+    def __init__(self,
+                 embed_dim,
+                 vocab_size,
+                 type_num,
+                 hid_size,
+                 dropout,
+                 pad_idx,
+                 max_oov_num: int = 50,
+                 copy=True) -> None:
+        super(TreeLSTM, self).__init__()
+
+        self.embedding = nn.Embedding(vocab_size, embed_dim)
+        self.type_embedding = nn.Embedding(type_num, embed_dim)
+
+        self.encoder = TreeLSTMEncoder(embed_dim, hid_size)
+
+        self.decoder = SimpleLSTMDecoder(embed_dim, hid_size, vocab_size,
+                                         max_oov_num, copy)
+
+        self.drop = nn.Dropout(dropout)
+        self.pad_idx = pad_idx
+
+    def encode(self, nodes, types, node_order, adjacency_list, edge_order):
+        """
+        nodes: [1, node_num]
+        """
+        pad_mask = self.get_mask(nodes)
+
+        features = self.drop(
+            self.embedding(nodes) + self.type_embedding(types)).squeeze(0)
+
+        h, _, root = self.encoder(features, node_order, adjacency_list,
+                                  edge_order)
+
+        # get hidden and adjust dimension
+        h = h.unsqueeze(0)
+        root = root.unsqueeze(0).unsqueeze(0)
+        hidden = (root, torch.zeros_like(root))
+
+        return h, hidden, bin2inf(pad_mask)
+
+    def decode(self,
+               questions,
+               nodes,
+               hidden,
+               mask=None,
+               copy_mask=None,
+               src2trg_map=None):
+        questions = self.embedding(questions)
+        return self.decoder(questions, hidden, nodes, mask,
+                            bin2inf(copy_mask).unsqueeze(1), src2trg_map)
+
+    def forward(self,
+                nodes,
+                types,
+                node_order,
+                adjacency_list,
+                edge_order,
+                questions,
+                copy_mask=None,
+                src2trg_map=None):
+        nodes, hidden, mask = self.encode(nodes, types, node_order,
+                                          adjacency_list, edge_order)
+        out, _ = self.decode(questions, nodes, hidden, mask, copy_mask,
+                             src2trg_map)
+        return out
+
+    def get_mask(self, x):
+        mask = get_bin_mask(x, self.pad_idx)
+        return mask

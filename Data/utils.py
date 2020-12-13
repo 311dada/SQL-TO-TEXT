@@ -110,6 +110,21 @@ def get_single_graph_data(trees):
     return nodes, types, graphs, copy_masks
 
 
+def get_tree_data(trees):
+    nodes, types, adjacency_list, copy_masks = [], [], [], []
+    for tree in trees:
+        node_, graph_, _ = linearize(tree, 0, tree=True)
+        nodes_ = list(map(lambda x: x.name, node_))
+        types_ = list(map(lambda x: TYPES[x.type], node_))
+        copy_mask = list(map(lambda x: x.copy_mark, node_))
+        nodes.append(nodes_)
+        types.append(types_)
+        adjacency_list.append(graph_)
+        copy_masks.append(copy_mask)
+
+    return nodes, types, adjacency_list, copy_masks
+
+
 def build_graph(graphs, node_num):
     Graphs = []
 
@@ -719,13 +734,8 @@ def get_seq_batch_data(batch_data,
         return (nodes, q_x, copy_mask, src2trg_map), label
 
 
-def get_single_graph_batch_data(
-    batch_data,
-    pad_idx,
-    device,
-    vocab_size,
-    unk_idx,
-):
+def get_single_graph_batch_data(batch_data, pad_idx, device, vocab_size,
+                                unk_idx):
     nodes, types, q, graphs, copy_mask, src2trg_map = batch_data
 
     node_num = get_lens(nodes, pad_idx).item()
@@ -744,3 +754,94 @@ def get_single_graph_batch_data(
     src2trg_map = src2trg_map[:, :node_num].to(device)
 
     return (nodes, types, q_x, graphs, copy_mask, src2trg_map), label
+
+
+def get_tree_batch_data(batch_data, device):
+    nodes, types, node_order, adjacency_list, edge_order, q, copy_mask, src2trg_map = batch_data
+
+    nodes = nodes.to(device)
+    types = types.to(device)
+    node_order = node_order.to(device).squeeze(0)
+    adjacency_list = adjacency_list.to(device).squeeze(0)
+    edge_order = edge_order.to(device).squeeze(0)
+    q_x = q[:, :-1].to(device)
+    label = q[:, 1:].to(device)
+    copy_mask = copy_mask.to(device)
+    src2trg_map = src2trg_map.to(device)
+
+    return (nodes, types, node_order, adjacency_list, edge_order, q_x,
+            copy_mask, src2trg_map), label
+
+
+# TreeLSTM utils (refer to https://github.com/unbounce/pytorch-tree-lstm)
+def calculate_evaluation_orders(adjacency_list, tree_size):
+    '''Calculates the node_order and edge_order from a tree adjacency_list and the tree_size.
+    The TreeLSTM model requires node_order and edge_order to be passed into the model along
+    with the node features and adjacency_list.  We pre-calculate these orders as a speed
+    optimization.
+    '''
+    adjacency_list = np.array(adjacency_list)
+
+    node_ids = np.arange(tree_size, dtype=int)
+
+    node_order = np.zeros(tree_size, dtype=int)
+    unevaluated_nodes = np.ones(tree_size, dtype=bool)
+
+    parent_nodes = adjacency_list[:, 0]
+    child_nodes = adjacency_list[:, 1]
+
+    n = 0
+    while unevaluated_nodes.any():
+        # Find which child nodes have not been evaluated
+        unevaluated_mask = unevaluated_nodes[child_nodes]
+
+        # Find the parent nodes of unevaluated children
+        unready_parents = parent_nodes[unevaluated_mask]
+
+        # Mark nodes that have not yet been evaluated
+        # and which are not in the list of parents with unevaluated child nodes
+        nodes_to_evaluate = unevaluated_nodes & ~np.isin(
+            node_ids, unready_parents)
+
+        node_order[nodes_to_evaluate] = n
+        unevaluated_nodes[nodes_to_evaluate] = False
+
+        n += 1
+
+    edge_order = node_order[parent_nodes]
+
+    return node_order, edge_order
+
+
+def batch_tree_input(batch):
+    '''Combines a batch of tree dictionaries into a single batched dictionary for use by the TreeLSTM model.
+    batch - list of dicts with keys ('features', 'node_order', 'edge_order', 'adjacency_list')
+    returns a dict with keys ('features', 'node_order', 'edge_order', 'adjacency_list', 'tree_sizes')
+    '''
+    tree_sizes = [b['features'].shape[0] for b in batch]
+
+    batched_features = torch.cat([b['features'] for b in batch])
+    batched_node_order = torch.cat([b['node_order'] for b in batch])
+    batched_edge_order = torch.cat([b['edge_order'] for b in batch])
+
+    batched_adjacency_list = []
+    offset = 0
+    for n, b in zip(tree_sizes, batch):
+        batched_adjacency_list.append(b['adjacency_list'] + offset)
+        offset += n
+    batched_adjacency_list = torch.cat(batched_adjacency_list)
+
+    return {
+        'features': batched_features,
+        'node_order': batched_node_order,
+        'edge_order': batched_edge_order,
+        'adjacency_list': batched_adjacency_list,
+        'tree_sizes': tree_sizes
+    }
+
+
+def unbatch_tree_tensor(tensor, tree_sizes):
+    '''Convenience functo to unbatch a batched tree tensor into individual tensors given an array of tree_sizes.
+    sum(tree_sizes) must equal the size of tensor's zeroth dimension.
+    '''
+    return torch.split(tensor, tree_sizes, dim=0)

@@ -344,7 +344,7 @@ See Tai et al. 2015 https://arxiv.org/abs/1503.00075 for model description.
 """
 
 
-class TreeLSTM(torch.nn.Module):
+class TreeLSTMEncoder(torch.nn.Module):
     '''PyTorch TreeLSTM model that implements efficient batching.
     '''
     def __init__(self, in_features, out_features):
@@ -477,19 +477,3 @@ class TreeLSTM(torch.nn.Module):
 
         return h[node_mask, :]
 
-
-class TreeLSTMEncoder(nn.Module):
-    def __init__(self, embed_dim, type_num, vocab_size, hid_size, dropout):
-        super(TreeLSTMEncoder, self).__init__()
-
-        self.embedding = nn.Embedding(vocab_size, embed_dim)
-        self.type_embedding = nn.Embedding(type_num, embed_dim)
-
-        self.tree_lstm = TreeLSTM(embed_dim, hid_size)
-
-        self.drop = nn.Dropout(dropout)
-
-    def forward(self, nodes, types, node_order, adjacency_list, edge_order):
-        # TODO
-        features = self.drop(
-            self.embedding(nodes) + self.type_embedding(types))

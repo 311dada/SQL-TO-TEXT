@@ -2,12 +2,12 @@ import argparse
 from Utils.fix_seed import fix_seed
 import torch
 import logging
-from Data.dataset import RGTDataset, SeqDataset, SingleGraphDataset
-from Model.model import RGT, RelativeTransformer, AbsoluteTransformer, BiLSTM, GAT, GCN
-from Utils.const import UP_SCHEMA_NUM, UP_TYPE_NUM, DOWN_TYPE_NUM, TYPE_NUM, RGT_VOCAB_PATH, RGT_MODEL_PATH, SEQ_VOCAB_PATH, RELATIVE_MODEL_PATH, TRANSFORMER_MODEL_PATH, BILSTM_MODEL_PATH, SINGLE_GRAPH_VOCAB_PATH, GAT_MODEL_PATH, GCN_MODEL_PATH
+from Data.dataset import RGTDataset, SeqDataset, SingleGraphDataset, TreeDataset
+from Model.model import RGT, RelativeTransformer, AbsoluteTransformer, BiLSTM, GAT, GCN, TreeLSTM
+from Utils.const import UP_SCHEMA_NUM, UP_TYPE_NUM, DOWN_TYPE_NUM, TYPE_NUM, RGT_VOCAB_PATH, RGT_MODEL_PATH, SEQ_VOCAB_PATH, RELATIVE_MODEL_PATH, TRANSFORMER_MODEL_PATH, BILSTM_MODEL_PATH, SINGLE_GRAPH_VOCAB_PATH, GAT_MODEL_PATH, GCN_MODEL_PATH, TREE_VOCAB_PATH, TREE_MODEL_PATH
 import os
 from torch.utils.data import DataLoader
-from Data.utils import get_RGT_batch_data, get_seq_batch_data, get_single_graph_batch_data
+from Data.utils import get_RGT_batch_data, get_seq_batch_data, get_single_graph_batch_data, get_tree_batch_data
 from Utils.metric import get_metric
 
 
@@ -77,8 +77,9 @@ def train(model, batch, label, optimizer, Loss, vocab_size, unk_idx, MODEL):
         nodes, types, questions, graphs, copy_mask, src2trg_map = batch
         out = model(nodes, types, graphs, questions, copy_mask, src2trg_map)
     else:
-        # TODO
-        pass
+        nodes, types, node_order, adjacency_list, edge_order, q_x, copy_mask, src2trg_map = batch
+        out = model(nodes, types, node_order, adjacency_list, edge_order, q_x,
+                    copy_mask, src2trg_map)
 
     out_dim = out.size(-1)
     out = out.reshape(-1, out_dim)
@@ -107,6 +108,7 @@ def eval(model,
     dataloader = DataLoader(dataset, args.eval_batch_size)
 
     total_preds = []
+    cnt = 0
 
     for batch_data in dataloader:
         preds = []
@@ -171,8 +173,25 @@ def eval(model,
                 inputs = next_input
 
         else:
-            # TODO
-            pass
+            print(cnt)
+            cnt += 1
+            batch, label = get_tree_batch_data(batch_data, device)
+
+            nodes, types, node_order, adjacency_list, edge_order, questions, copy_mask, src2trg_map = batch
+
+            nodes, hidden, mask = model.encode(nodes, types, node_order,
+                                               adjacency_list, edge_order)
+
+            inputs = questions[:, 0].view(-1, 1)
+
+            for i in range(max_decode):
+                cur_out, hidden = model.decode(inputs, nodes, hidden, mask,
+                                               copy_mask, src2trg_map)
+                next_input = cur_out.argmax(dim=-1)
+                preds.append(next_input)
+                next_input[next_input >= down_vocab.size] = down_vocab.unk_idx
+                inputs = next_input
+
         preds = torch.cat(preds, dim=1)
         total_preds += preds.tolist()
 
@@ -268,9 +287,23 @@ def run(args):
             os.makedirs(SINGLE_GRAPH_VOCAB_PATH)
         vocab.save(os.path.join(SINGLE_GRAPH_VOCAB_PATH, "SingleGraph.vocab"))
 
+    elif args.model == "TreeLSTM":
+        train_set = TreeDataset(train_data_files,
+                                table_file,
+                                data=DATA,
+                                min_freq=args.min_freq)
+        dev_set = TreeDataset(dev_data_files,
+                              table_file,
+                              data=DATA,
+                              vocab=train_set.vocab)
+        vocab = train_set.vocab
+
+        if not os.path.exists(TREE_VOCAB_PATH):
+            os.makedirs(TREE_VOCAB_PATH)
+        vocab.save(os.path.join(TREE_VOCAB_PATH, "tree.vocab"))
+
     else:
-        # TODO
-        pass
+        raise ValueError("Not supported model.")
 
     # build model
     if args.model == "RGT":
@@ -321,8 +354,11 @@ def run(args):
                     args.down_layer_num, vocab.pad_idx, args.dropout,
                     args.max_oov_num, args.copy)
     else:
-        # TODO
-        pass
+        model = TreeLSTM(args.down_embed_dim, vocab.size, TYPE_NUM,
+                         args.hid_size, args.dropout, vocab.pad_idx,
+                         args.max_oov_num, args.copy)
+        args.train_batch_size = 1
+        args.eval_batch_size = 1
 
     model.to(device)
 
@@ -338,12 +374,12 @@ def run(args):
     if args.model == "RGT":
         Loss = torch.nn.NLLLoss(ignore_index=down_vocab.pad_idx)
     elif args.model in [
-            "Relative-Transformer", "Transformer", "BiLSTM", "GAT", "GCN"
+            "Relative-Transformer", "Transformer", "BiLSTM", "GAT", "GCN",
+            "TreeLSTM"
     ]:
         Loss = torch.nn.NLLLoss(ignore_index=vocab.pad_idx)
     else:
-        # TODO
-        pass
+        raise ValueError("Not supported model.")
 
     # data loader
     train_data_loader = DataLoader(train_set,
@@ -369,8 +405,7 @@ def run(args):
     elif args.model == "GCN":
         MODEL = GCN_MODEL_PATH
     else:
-        # TODO
-        pass
+        MODEL = TREE_MODEL_PATH
     if not os.path.exists(MODEL):
         os.makedirs(MODEL)
 
@@ -401,8 +436,7 @@ def run(args):
                     batch_data, vocab.pad_idx, device, vocab.size,
                     vocab.unk_idx)
             else:
-                # TODO
-                pass
+                batch, label = get_tree_batch_data(batch_data, device)
 
             train_loss = 0
             if args.model == "RGT":
@@ -411,13 +445,12 @@ def run(args):
                                    args.model)
             elif args.model in [
                     "Relative-Transformer", "Transformer", "BiLSTM", "GAT",
-                    "GCN"
+                    "GCN", "TreeLSTM"
             ]:
                 train_loss = train(model, batch, label, optimizer, Loss,
                                    vocab.size, vocab.unk_idx, args.model)
             else:
-                # TODO
-                pass
+                raise ValueError("Not supported model.")
 
             if batch_step and not batch_step % args.train_step:
                 logging.info(
@@ -427,12 +460,12 @@ def run(args):
             if batch_step and not batch_step % args.eval_step:
                 train_bleu, dev_bleu = 0, 0
                 if args.model == "RGT":
-                    train_bleu = eval(model, train_set, up_vocab, down_vocab,
-                                      args, device, args.model)
+                    # train_bleu = eval(model, train_set, up_vocab, down_vocab,
+                    #                   args, device, args.model)
 
-                    logging.info(
-                        f"epoch {epoch}, batch {batch_step}: [training bleu-> {round(train_bleu, 4)}]"
-                    )
+                    # logging.info(
+                    #     f"epoch {epoch}, batch {batch_step}: [training bleu-> {round(train_bleu, 4)}]"
+                    # )
                     dev_bleu = eval(model,
                                     dev_set,
                                     up_vocab,
@@ -446,14 +479,14 @@ def run(args):
                     )
                 elif args.model in [
                         "Relative-Transformer", "Transformer", "BiLSTM", "GAT",
-                        "GCN"
+                        "GCN", "TreeLSTM"
                 ]:
-                    train_bleu = eval(model, train_set, None, vocab, args,
-                                      device, args.model)
+                    # train_bleu = eval(model, train_set, None, vocab, args,
+                    #                   device, args.model)
 
-                    logging.info(
-                        f"epoch {epoch}, batch {batch_step}: [training bleu-> {round(train_bleu, 4)}]"
-                    )
+                    # logging.info(
+                    #     f"epoch {epoch}, batch {batch_step}: [training bleu-> {round(train_bleu, 4)}]"
+                    # )
                     dev_bleu = eval(model,
                                     dev_set,
                                     None,
@@ -466,8 +499,7 @@ def run(args):
                         f"epoch {epoch}, batch {batch_step}: [dev bleu-> {round(dev_bleu, 4)}]"
                     )
                 else:
-                    # TODO
-                    pass
+                    raise ValueError("Not supported model.")
 
                 if dev_bleu > best_bleu:
                     best_bleu = dev_bleu

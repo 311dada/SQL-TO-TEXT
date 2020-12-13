@@ -8,7 +8,7 @@ FilePath: /Tree2Seq/Data/wikisql/dataset.py
 '''
 from torch.utils.data import Dataset
 from Data.vocab import Vocabulary
-from Data.spider.data_utils import load_spider_data, load_spider_seq2seq_data, load_spider_single_graph_data
+from Data.spider.data_utils import load_spider_data, load_spider_seq2seq_data, load_spider_single_graph_data, load_spider_tree_data
 from typing import Tuple, List
 import torch
 
@@ -146,6 +146,51 @@ class SingleGraphDataset(Dataset):
                 index], self.src2trg_map[index]
 
 
-# TODO
 class TreeDataset(Dataset):
-    pass
+    def __init__(self,
+                 data_files,
+                 table_file,
+                 data="spider",
+                 vocab=None,
+                 min_freq=1):
+        super(TreeDataset, self).__init__()
+
+        if data == "spider":
+            load_tree_data = load_spider_tree_data
+        else:
+            # TODO
+            load_tree_data = None
+
+        nodes, types, node_order, adjacency_list, edge_order, questions, origin_ques, vocab, val_map_list, copy_mask, src2trg_map, idx2tok_map_list = load_tree_data(
+            data_files, table_file, vocab, min_freq)
+
+        self.nodes = nodes
+        self.types = types
+        self.node_order = node_order
+        self.adjacency_list = adjacency_list
+        self.edge_order = edge_order
+        self.questions = questions
+        self.copy_mask = copy_mask
+        self.src2trg_map = src2trg_map
+
+        self.origin_questions = origin_ques
+        self.vocab = vocab
+        self.val_map_list = val_map_list
+        self.idx2tok_map_list = idx2tok_map_list
+
+    def __len__(self) -> int:
+        return len(self.nodes)
+
+    def __getitem__(self, index: int):
+        return torch.tensor(self.nodes[index], dtype=torch.long), torch.tensor(
+            self.types[index], dtype=torch.long), torch.tensor(
+                self.node_order[index], dtype=torch.long), torch.tensor(
+                    self.adjacency_list[index],
+                    dtype=torch.long), torch.tensor(
+                        self.edge_order[index],
+                        dtype=torch.long), torch.tensor(
+                            self.questions[index],
+                            dtype=torch.long), torch.tensor(
+                                self.copy_mask[index],
+                                dtype=torch.long), torch.tensor(
+                                    self.src2trg_map[index], dtype=torch.long)
