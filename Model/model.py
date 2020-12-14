@@ -13,7 +13,7 @@ import torch
 import torch.nn as nn
 from Model.encoder import RGTEncoder, RATEncoder, GCNEncoder, TreeLSTMEncoder
 from Model.decoder import LSTMDecoder, SimpleLSTMDecoder
-from Model.utils import max_pooling, get_bin_mask, bin2inf
+from Model.utils import max_pooling, get_bin_mask, bin2inf, mean_pooling
 from Model.layer import PositionalEncoding
 
 
@@ -148,8 +148,8 @@ class RGT(nn.Module):
     @staticmethod
     def get_init_hidden(up_nodes, down_nodes, up_mask=None, down_mask=None):
         # mean pooling
-        up_hidden = max_pooling(up_nodes, up_mask)
-        down_hidden = max_pooling(down_nodes, down_mask)
+        up_hidden = mean_pooling(up_nodes, up_mask)
+        down_hidden = mean_pooling(down_nodes, down_mask)
 
         return up_hidden + down_hidden
 
