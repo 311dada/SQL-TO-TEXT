@@ -14,7 +14,8 @@ def bin2inf(x):
 
 def mean_pooling(x, mask=None):
     if mask is not None:
-        x = x * mask.type(torch.float)
+        mask = mask.type(torch.float)
+        x = x * mask
         return x.sum(dim=1, keepdim=True) / mask.sum(dim=1, keepdim=True)
     return torch.mean(x, dim=1, keepdim=True)
 
