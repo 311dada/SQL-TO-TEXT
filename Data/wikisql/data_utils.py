@@ -404,7 +404,7 @@ def load_wikisql_data(
     logging.info("Start getting flatten data.")
     # get flatten sqls, copy_masks, cliques, origin questions, processed questions
     down_nodes, up_nodes, up_nodes_types, down_nodes_types, up_graphs, up_depths, up_schemas, copy_masks, mixed_head_masks, up_to_down_masks, down_to_up_masks = get_flatten_data(
-        trees, use_schema=False)
+        trees, use_schema=False, max_depth=max_depth)
     origin_ques = list(map(lambda sample: sample["origin_ques"], samples))
     proc_ques = list(map(lambda sample: sample["proc_ques"], samples))
 
