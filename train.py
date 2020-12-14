@@ -249,19 +249,22 @@ def run(args):
         train_set = RGTDataset(train_data_files,
                                train_table_file,
                                data=DATA,
-                               min_freq=args.min_freq)
+                               min_freq=args.min_freq,
+                               max_depth=args.up_max_depth)
         dev_set = RGTDataset(dev_data_files,
                              dev_table_file,
                              data=DATA,
                              down_vocab=train_set.down_vocab,
-                             up_vocab=train_set.up_vocab)
+                             up_vocab=train_set.up_vocab,
+                             max_depth=args.up_max_depth)
 
         if DATA == "wikisql":
             test_set = RGTDataset(test_data_files,
                                   test_table_file,
                                   data=DATA,
                                   down_vocab=train_set.down_vocab,
-                                  up_vocab=train_set.up_vocab)
+                                  up_vocab=train_set.up_vocab,
+                                  max_depth=args.up_max_depth)
         up_vocab = train_set.up_vocab
         down_vocab = train_set.down_vocab
 
