@@ -90,7 +90,6 @@ def get_flatten_data(
             up_schemas.append(get_up_schema(graph_data, tables_map[db_id]))
         up_to_down_masks.append(up_to_down_mask)
 
-    mixed_head_masks = pad_head_mask(mixed_head_masks, leaf_num)
 
     return down_nodes, up_nodes, up_nodes_types, down_nodes_types, up_graphs, up_depths, up_schemas, copy_masks, mixed_head_masks, up_to_down_masks, down_to_up_masks
 
