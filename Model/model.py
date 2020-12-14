@@ -147,9 +147,9 @@ class RGT(nn.Module):
 
     @staticmethod
     def get_init_hidden(up_nodes, down_nodes, up_mask=None, down_mask=None):
-        # mean pooling
-        up_hidden = mean_pooling(up_nodes, up_mask)
-        down_hidden = mean_pooling(down_nodes, down_mask)
+        # max pooling
+        up_hidden = max_pooling(up_nodes, up_mask)
+        down_hidden = max_pooling(down_nodes, down_mask)
 
         return up_hidden + down_hidden
 
