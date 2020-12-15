@@ -133,8 +133,9 @@ class RGT(nn.Module):
         up_nodes = self.drop(self.up_dec_prj(up_nodes))
         down_nodes = self.drop(self.down_dec_prj(down_nodes))
 
-        up_nodes = self.up_layer_norm(up_nodes)
-        down_nodes = self.down_layer_norm(down_nodes)
+        # FIXME: Spider is required
+        # up_nodes = self.up_layer_norm(up_nodes)
+        # down_nodes = self.down_layer_norm(down_nodes)
 
         # [bsz, 1, hid_size]
         h = self.get_init_hidden(up_nodes, down_nodes, up_mask.unsqueeze(-1),

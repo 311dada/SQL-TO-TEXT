@@ -211,9 +211,8 @@ class RGTEncoder(nn.Module):
 
             # down to up attention
             if self.down_to_up_atten != "None":
-                down_nodes = self.down_layer_norm(
-                    down_nodes + self.down2up_attention(
-                        down_nodes, up_nodes, i, AOA_mask, up_mask))
+                down_nodes = down_nodes + self.down2up_attention(
+                    down_nodes, up_nodes, i, AOA_mask, up_mask)
 
             # get relation
             down_r_k, down_r_v = self.get_down_rel(down_dist, down_lca,
@@ -230,9 +229,8 @@ class RGTEncoder(nn.Module):
 
             # up to down attention
             if self.up_to_down_atten != "None":
-                up_nodes = self.up_layer_norm(
-                    up_nodes + self.up2down_attention(up_nodes, down_nodes, i,
-                                                      AOD_mask, down_mask))
+                up_nodes = up_nodes + self.up2down_attention(
+                    up_nodes, down_nodes, i, AOD_mask, down_mask)
 
         return up_nodes, down_nodes
 

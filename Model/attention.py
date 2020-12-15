@@ -36,7 +36,6 @@ class BahdanauAttention(nn.Module):
     def __init__(self, dim1, dim2, dim3, score=False) -> None:
         super(BahdanauAttention, self).__init__()
         self.W = nn.Linear(dim1, dim2)
-        # self.U = nn.Linear(dim2, dim3)
         self.score = score
 
     def forward(self, S, H, pad_mask=None):
