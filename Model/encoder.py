@@ -31,7 +31,8 @@ class RGTEncoder(nn.Module):
                  mode="concat",
                  cross_atten="AOD+None",
                  up_rel={"DRD", "DBS"},
-                 down_rel={"RPR", "LCA"}):
+                 down_rel={"RPR", "LCA"},
+                 DATA="spider"):
         super(RGTEncoder, self).__init__()
 
         assert up_rel.issubset({"DRD", "DBS"})
@@ -42,6 +43,7 @@ class RGTEncoder(nn.Module):
         self.up_d_k = up_d_model // up_head_num
         self.down_layer_num = down_layer_num
         self.down_d_k = down_d_model // down_head_num
+        self.DATA = DATA
 
         if mode == "concat":
             self.up_d_rel = self.up_d_k
@@ -213,6 +215,9 @@ class RGTEncoder(nn.Module):
             if self.down_to_up_atten != "None":
                 down_nodes = down_nodes + self.down2up_attention(
                     down_nodes, up_nodes, i, AOA_mask, up_mask)
+                # spider requires LayerNorm
+                if self.DATA == "spider":
+                    down_nodes = self.down_layer_norm(down_nodes)
 
             # get relation
             down_r_k, down_r_v = self.get_down_rel(down_dist, down_lca,
@@ -231,6 +236,9 @@ class RGTEncoder(nn.Module):
             if self.up_to_down_atten != "None":
                 up_nodes = up_nodes + self.up2down_attention(
                     up_nodes, down_nodes, i, AOD_mask, down_mask)
+                # spider requires LayerNorm
+                if self.DATA == "spider":
+                    up_nodes = self.up_layer_norm(up_nodes)
 
         return up_nodes, down_nodes
 

@@ -48,7 +48,8 @@ class RGT(nn.Module):
                  mode="concat",
                  cross_atten="AOD+None",
                  up_rel={"DRD", "DBS"},
-                 down_rel={"RPR", "LCA"}):
+                 down_rel={"RPR", "LCA"},
+                 DATA="spider"):
         super(RGT, self).__init__()
 
         assert up_d_model % up_head_num == 0
@@ -58,6 +59,7 @@ class RGT(nn.Module):
 
         self.up_pad_idx = up_pad_idx
         self.down_pad_idx = down_pad_idx
+        self.DATA = DATA
 
         # embedding layers
         self.up_nodes_embed = nn.Embedding(up_vocab_size, up_embed_dim)
@@ -83,7 +85,8 @@ class RGT(nn.Module):
                                       mode=mode,
                                       cross_atten=cross_atten,
                                       up_rel=up_rel,
-                                      down_rel=down_rel)
+                                      down_rel=down_rel,
+                                      DATA=DATA)
 
         self.up_enc_init = nn.Linear(up_embed_dim, up_d_model)
         self.down_enc_init = nn.Linear(down_embed_dim, down_d_model)
@@ -133,9 +136,10 @@ class RGT(nn.Module):
         up_nodes = self.drop(self.up_dec_prj(up_nodes))
         down_nodes = self.drop(self.down_dec_prj(down_nodes))
 
-        # FIXME: Spider is required
-        # up_nodes = self.up_layer_norm(up_nodes)
-        # down_nodes = self.down_layer_norm(down_nodes)
+        # Spider is required
+        if self.DATA == "spider":
+            up_nodes = self.up_layer_norm(up_nodes)
+            down_nodes = self.down_layer_norm(down_nodes)
 
         # [bsz, 1, hid_size]
         h = self.get_init_hidden(up_nodes, down_nodes, up_mask.unsqueeze(-1),

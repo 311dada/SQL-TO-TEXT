@@ -351,7 +351,7 @@ def run(args):
                     args.down_layer_num, args.hid_size, args.dropout,
                     up_vocab.pad_idx, down_vocab.pad_idx, args.max_oov_num,
                     args.copy, args.rel_share, args.k_v_share, args.mode,
-                    args.cross_atten, set(args.up_rel), set(args.down_rel))
+                    args.cross_atten, set(args.up_rel), set(args.down_rel), DATA)
 
     elif args.model == "Relative-Transformer":
         model = RelativeTransformer(args.down_embed_dim, vocab.size,
