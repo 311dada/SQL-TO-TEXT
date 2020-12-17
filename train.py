@@ -201,9 +201,7 @@ def eval(model,
         with open(args.output, 'w') as f:
             for idx, pred in enumerate(preds):
                 f.write(f"Pre: {pred}\n\n")
-                f.write(f"Ref: \n     1. {refs[0][idx]}\n")
-                if refs[0][idx] != refs[1][idx]:
-                    f.write(f"     2. {refs[1][idx]}\n")
+                f.write(f"Ref: {refs[idx]}\n")
                 f.write(f"{'-' * 60}\n")
 
     return bleu
@@ -350,8 +348,9 @@ def run(args):
                     args.up_head_num, args.down_head_num, args.up_layer_num,
                     args.down_layer_num, args.hid_size, args.dropout,
                     up_vocab.pad_idx, down_vocab.pad_idx, args.max_oov_num,
-                    args.copy, args.rel_share, args.k_v_share, args.mode,
-                    args.cross_atten, set(args.up_rel), set(args.down_rel), DATA)
+                    args.copy, args.rel_share, args.k_v_share,
+                    args.mode, args.cross_atten, set(args.up_rel),
+                    set(args.down_rel), DATA)
 
     elif args.model == "Relative-Transformer":
         model = RelativeTransformer(args.down_embed_dim, vocab.size,

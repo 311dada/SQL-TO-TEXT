@@ -114,4 +114,4 @@ def get_metric(preds: List[List],
     preds_, refs_ = combine_same_ref(preds, labels)
 
     return corpus_bleu(preds_, refs_, force=True,
-                       lowercase=True).score, preds_, refs_
+                       lowercase=True).score, preds, labels
